@@ -134,7 +134,7 @@ void processReadsSingleSA(single_parser* parser,
             auto numHits = hits.size();
             hctr.totHits += numHits;
 
-            if (hits.size() > 0 and hits.size() <= maxNumHits) {
+            if (hits.size() > 0 and !noOutput and hits.size() <= maxNumHits) {
                 /*
                 std::sort(hits.begin(), hits.end(),
                             [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
