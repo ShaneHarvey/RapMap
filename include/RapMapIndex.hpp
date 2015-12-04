@@ -32,7 +32,7 @@ class RapMapIndex {
     //using KmerIndex = std::unordered_map<uint64_t, TranscriptList, rapmap::utils::KmerKeyHasher>;
     //using IntervalIndex = std::unordered_map<uint64_t, rapmap::utils::KmerInterval, rapmap::utils::KmerKeyHasher>;
 
-    public:
+public:
     RapMapIndex();
 
     bool load(std::string& indexPrefix);

@@ -6,24 +6,24 @@ namespace rapmap {
     namespace fs {
 
         // Taken from http://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
-        int FileExists(const char *path) {
+        int FileExists(const char* path) {
             struct stat fileStat;
-            if ( stat(path, &fileStat) ) {
+            if (stat(path, &fileStat)) {
                 return false;
             }
-            if ( !S_ISREG(fileStat.st_mode) ) {
+            if (!S_ISREG(fileStat.st_mode)) {
                 return false;
             }
             return true;
         }
 
         // Taken from http://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
-        bool DirExists(const char *path) {
+        bool DirExists(const char* path) {
             struct stat fileStat;
-            if ( stat(path, &fileStat) ) {
+            if (stat(path, &fileStat)) {
                 return false;
             }
-            if ( !S_ISDIR(fileStat.st_mode) ) {
+            if (!S_ISDIR(fileStat.st_mode)) {
                 return false;
             }
             return true;

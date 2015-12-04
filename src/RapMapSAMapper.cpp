@@ -91,17 +91,16 @@ using QuasiAlignment = rapmap::utils::QuasiAlignment;
 using FixedWriter = rapmap::utils::FixedWriter;
 
 
-
-template <typename CollectorT, typename MutexT>
-void processReadsSingleSA(single_parser * parser,
-        RapMapSAIndex& rmi,
-    	CollectorT& hitCollector,
-        MutexT* iomutex,
-    	std::shared_ptr<spdlog::logger> outQueue,
-        HitCounters& hctr,
-        uint32_t maxNumHits,
-        bool noOutput,
-        bool strictCheck) {
+template<typename CollectorT, typename MutexT>
+void processReadsSingleSA(single_parser* parser,
+                          RapMapSAIndex& rmi,
+                          CollectorT& hitCollector,
+                          MutexT* iomutex,
+                          std::shared_ptr<spdlog::logger> outQueue,
+                          HitCounters& hctr,
+                          uint32_t maxNumHits,
+                          bool noOutput,
+                          bool strictCheck) {
 
     auto& txpNames = rmi.txpNames;
     std::vector<uint32_t>& txpOffsets = rmi.txpOffsets;
@@ -116,7 +115,7 @@ void processReadsSingleSA(single_parser * parser,
     std::vector<QuasiAlignment> hits;
 
     size_t readLen{0};
-	bool tooManyHits{false};
+    bool tooManyHits{false};
     uint16_t flags;
 
     SingleAlignmentFormatter<RapMapSAIndex*> formatter(&rmi);
@@ -124,10 +123,10 @@ void processReadsSingleSA(single_parser * parser,
     SASearcher saSearcher(&rmi);
 
     uint32_t orphanStatus{0};
-    while(true) {
+    while (true) {
         typename single_parser::job j(*parser); // Get a job from the parser: a bunch of reads (at most max_read_group)
-        if(j.is_empty()) break;                 // If we got nothing, then quit.
-        for(size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
+        if (j.is_empty()) break;                 // If we got nothing, then quit.
+        for (size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
             readLen = j->data[i].seq.length();
             ++hctr.numReads;
             hits.clear();
@@ -147,8 +146,8 @@ void processReadsSingleSA(single_parser * parser,
             }
 
             if (hctr.numReads > hctr.lastPrint + 1000000) {
-        		hctr.lastPrint.store(hctr.numReads.load());
-                if (iomutex->try_lock()){
+                hctr.lastPrint.store(hctr.numReads.load());
+                if (iomutex->try_lock()) {
                     if (hctr.numReads > 0) {
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
                         std::cerr << "\033[F\033[F\033[F";
@@ -158,11 +157,11 @@ void processReadsSingleSA(single_parser * parser,
                     }
                     std::cerr << "saw " << hctr.numReads << " reads\n";
                     std::cerr << "# hits per read = "
-                        << hctr.totHits / static_cast<float>(hctr.numReads) << "\n";
+                              << hctr.totHits / static_cast<float>(hctr.numReads) << "\n";
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
                     std::cerr << "The true hit was in the returned set of hits "
-                        << 100.0 * (hctr.trueHits / static_cast<float>(hctr.numReads))
-                        <<  "% of the time\n";
+                              << 100.0 * (hctr.trueHits / static_cast<float>(hctr.numReads))
+                              <<  "% of the time\n";
 #endif // __DEBUG__
                     iomutex->unlock();
                 }
@@ -194,16 +193,16 @@ void processReadsSingleSA(single_parser * parser,
 /**
  *  Map reads from a collection of paired-end files.
  */
-template <typename CollectorT, typename MutexT>
+template<typename CollectorT, typename MutexT>
 void processReadsPairSA(paired_parser* parser,
-        RapMapSAIndex& rmi,
-    	CollectorT& hitCollector,
-        MutexT* iomutex,
-	    std::shared_ptr<spdlog::logger> outQueue,
-        HitCounters& hctr,
-        uint32_t maxNumHits,
-        bool noOutput,
-        bool strictCheck) {
+                        RapMapSAIndex& rmi,
+                        CollectorT& hitCollector,
+                        MutexT* iomutex,
+                        std::shared_ptr<spdlog::logger> outQueue,
+                        HitCounters& hctr,
+                        uint32_t maxNumHits,
+                        bool noOutput,
+                        bool strictCheck) {
     auto& txpNames = rmi.txpNames;
     std::vector<uint32_t>& txpOffsets = rmi.txpOffsets;
     auto& txpLens = rmi.txpLens;
@@ -219,7 +218,7 @@ void processReadsPairSA(paired_parser* parser,
     std::vector<QuasiAlignment> jointHits;
 
     size_t readLen{0};
-	bool tooManyHits{false};
+    bool tooManyHits{false};
     uint16_t flags1, flags2;
 
     // Create a formatter for alignments
@@ -228,11 +227,11 @@ void processReadsPairSA(paired_parser* parser,
     SASearcher saSearcher(&rmi);
 
     uint32_t orphanStatus{0};
-    while(true) {
+    while (true) {
         typename paired_parser::job j(*parser); // Get a job from the parser: a bunch of reads (at most max_read_group)
-        if(j.is_empty()) break;                 // If we got nothing, quit
-        for(size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
-		    tooManyHits = false;
+        if (j.is_empty()) break;                 // If we got nothing, quit
+        for (size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
+            tooManyHits = false;
             readLen = j->data[i].first.seq.length();
             ++hctr.numReads;
             jointHits.clear();
@@ -240,13 +239,13 @@ void processReadsPairSA(paired_parser* parser,
             rightHits.clear();
 
             bool lh = hitCollector(j->data[i].first.seq,
-                        leftHits, saSearcher,
-                        MateStatus::PAIRED_END_LEFT,
-                        strictCheck);
+                                   leftHits, saSearcher,
+                                   MateStatus::PAIRED_END_LEFT,
+                                   strictCheck);
             bool rh = hitCollector(j->data[i].second.seq,
-                        rightHits, saSearcher,
-                        MateStatus::PAIRED_END_RIGHT,
-                        strictCheck);
+                                   rightHits, saSearcher,
+                                   MateStatus::PAIRED_END_RIGHT,
+                                   strictCheck);
 
             rapmap::utils::mergeLeftRightHits(
                     leftHits, rightHits, jointHits,
@@ -259,7 +258,7 @@ void processReadsPairSA(paired_parser* parser,
             }
 
             if (hctr.numReads > hctr.lastPrint + 1000000) {
-        		hctr.lastPrint.store(hctr.numReads.load());
+                hctr.lastPrint.store(hctr.numReads.load());
                 if (iomutex->try_lock()) {
                     if (hctr.numReads > 0) {
                         std::cerr << "\r\r";
@@ -285,12 +284,12 @@ void processReadsPairSA(paired_parser* parser,
                 outQueue->info() << std::move(outStr);
             }
             sstream.clear();
-	        /*
+            /*
             iomutex->lock();
             outStream << sstream.str();
             iomutex->unlock();
             sstream.clear();
-	        */
+            */
         }
 
     } // processed all reads
@@ -307,15 +306,22 @@ int rapMapSAMap(int argc, char* argv[]) {
             versionString);
     cmd.getProgramName() = "rapmap";
 
-    TCLAP::ValueArg<std::string> index("i", "index", "The location where the index should be written", true, "", "path");
-    TCLAP::ValueArg<std::string> read1("1", "leftMates", "The location of the left paired-end reads", false, "", "path");
-    TCLAP::ValueArg<std::string> read2("2", "rightMates", "The location of the right paired-end reads", false, "", "path");
-    TCLAP::ValueArg<std::string> unmatedReads("r", "unmatedReads", "The location of single-end reads", false, "", "path");
+    TCLAP::ValueArg<std::string> index("i", "index", "The location where the index should be written", true, "",
+                                       "path");
+    TCLAP::ValueArg<std::string> read1("1", "leftMates", "The location of the left paired-end reads", false, "",
+                                       "path");
+    TCLAP::ValueArg<std::string> read2("2", "rightMates", "The location of the right paired-end reads", false, "",
+                                       "path");
+    TCLAP::ValueArg<std::string> unmatedReads("r", "unmatedReads", "The location of single-end reads", false, "",
+                                              "path");
     TCLAP::ValueArg<uint32_t> numThreads("t", "numThreads", "Number of threads to use", false, 1, "positive integer");
-    TCLAP::ValueArg<uint32_t> maxNumHits("m", "maxNumHits", "Reads mapping to more than this many loci are discarded", false, 200, "positive integer");
+    TCLAP::ValueArg<uint32_t> maxNumHits("m", "maxNumHits", "Reads mapping to more than this many loci are discarded",
+                                         false, 200, "positive integer");
     TCLAP::ValueArg<std::string> outname("o", "output", "The output file (default: stdout)", false, "", "path");
     TCLAP::SwitchArg noout("n", "noOutput", "Don't write out any alignments (for speed testing purposes)", false);
-    TCLAP::SwitchArg strict("s", "strictCheck", "Perform extra checks to try and assure that only equally \"best\" mappings for a read are reported", false);
+    TCLAP::SwitchArg strict("s", "strictCheck",
+                            "Perform extra checks to try and assure that only equally \"best\" mappings for a read are reported",
+                            false);
     cmd.add(index);
     cmd.add(noout);
 
@@ -332,183 +338,183 @@ int rapMapSAMap(int argc, char* argv[]) {
 
     try {
 
-	cmd.parse(argc, argv);
-	bool pairedEnd = (read1.isSet() or read2.isSet());
-	if (pairedEnd and (read1.isSet() != read2.isSet())) {
-	    consoleLog->error("You must set both the -1 and -2 arguments to align "
-		    "paired end reads!");
-	    std::exit(1);
-	}
-
-	if (pairedEnd and unmatedReads.isSet()) {
-	    consoleLog->error("You cannot specify both paired-end and unmated "
-		    "reads in the input!");
-	    std::exit(1);
-	}
-
-	if (!pairedEnd and !unmatedReads.isSet()) {
-	    consoleLog->error("You must specify input; either both paired-end "
-			      "or unmated reads!");
-	    std::exit(1);
-
-	}
-
-	std::string indexPrefix(index.getValue());
-	if (indexPrefix.back() != '/') {
-	    indexPrefix += "/";
-	}
-
-	if (!rapmap::fs::DirExists(indexPrefix.c_str())) {
-	    consoleLog->error("It looks like the index you provided [{}] "
-		    "doesn't exist", indexPrefix);
-	    std::exit(1);
-	}
-
-	IndexHeader h;
-	std::ifstream indexStream(indexPrefix + "header.json");
-	{
-		cereal::JSONInputArchive ar(indexStream);
-		ar(h);
-	}
-	indexStream.close();
-
-	if (h.indexType() != IndexType::QUASI) {
-	    consoleLog->error("The index {} does not appear to be of the "
-			    "appropriate type (quasi)", indexPrefix);
-	    std::exit(1);
-	}
-
-	RapMapSAIndex rmi;
-	rmi.load(indexPrefix);
-
-	std::cerr << "\n\n\n\n";
-
-	// from: http://stackoverflow.com/questions/366955/obtain-a-stdostream-either-from-stdcout-or-stdofstreamfile
-	// set either a file or cout as the output stream
-	std::streambuf* outBuf;
-	std::ofstream outFile;
-	bool haveOutputFile{false};
-	if (outname.getValue() == "") {
-	    outBuf = std::cout.rdbuf();
-	} else {
-	    outFile.open(outname.getValue());
-	    outBuf = outFile.rdbuf();
-	    haveOutputFile = true;
-	}
-	// Now set the output stream to the buffer, which is
-	// either std::cout, or a file.
-	std::ostream outStream(outBuf);
-
-	// Must be a power of 2
-	size_t queueSize{268435456};
-	spdlog::set_async_mode(queueSize);
-	auto outputSink = std::make_shared<spdlog::sinks::ostream_sink_mt>(outStream);
-	std::shared_ptr<spdlog::logger> outLog = std::make_shared<spdlog::logger>("outLog", outputSink);
-	outLog->set_pattern("%v");
-
-	uint32_t nthread = numThreads.getValue();
-	std::unique_ptr<paired_parser> pairParserPtr{nullptr};
-	std::unique_ptr<single_parser> singleParserPtr{nullptr};
-
-	if (!noout.getValue()) {
-	    rapmap::utils::writeSAMHeader(rmi, outLog);
-	}
-
-    bool strictCheck = strict.getValue();
-	SpinLockT iomutex;
-	{
-	    ScopedTimer timer;
-	    HitCounters hctrs;
-	    consoleLog->info("mapping reads . . . \n\n\n");
-        if (pairedEnd) {
-            std::vector<std::thread> threads;
-            std::vector<std::string> read1Vec = rapmap::utils::tokenize(read1.getValue(), ',');
-            std::vector<std::string> read2Vec = rapmap::utils::tokenize(read2.getValue(), ',');
-
-            if (read1Vec.size() != read2Vec.size()) {
-                consoleLog->error("The number of provided files for "
-                                  "-1 and -2 must be the same!");
-                std::exit(1);
-            }
-
-            size_t numFiles = read1Vec.size() + read2Vec.size();
-            char** pairFileList = new char*[numFiles];
-            for (size_t i = 0; i < read1Vec.size(); ++i) {
-                pairFileList[2*i] = const_cast<char*>(read1Vec[i].c_str());
-                pairFileList[2*i+1] = const_cast<char*>(read2Vec[i].c_str());
-            }
-            size_t maxReadGroup{1000}; // Number of reads in each "job"
-            size_t concurrentFile{2}; // Number of files to read simultaneously
-            pairParserPtr.reset(new paired_parser(4 * nthread, maxReadGroup,
-                        concurrentFile,
-                        pairFileList, pairFileList+numFiles));
-
-            SACollector saCollector(&rmi);
-            for (size_t i = 0; i < nthread; ++i) {
-                threads.emplace_back(processReadsPairSA<SACollector, SpinLockT>,
-                        pairParserPtr.get(),
-                        std::ref(rmi),
-                        std::ref(saCollector),
-                        &iomutex,
-            			outLog,
-                        std::ref(hctrs),
-                        maxNumHits.getValue(),
-                        noout.getValue(),
-                        strictCheck);
-            }
-
-            for (auto& t : threads) { t.join(); }
-            delete [] pairFileList;
-        } else {
-            std::vector<std::thread> threads;
-            std::vector<std::string> unmatedReadVec = rapmap::utils::tokenize(unmatedReads.getValue(), ',');
-            size_t maxReadGroup{1000}; // Number of reads in each "job"
-            size_t concurrentFile{1};
-            stream_manager streams( unmatedReadVec.begin(), unmatedReadVec.end(),
-                    concurrentFile);
-            singleParserPtr.reset(new single_parser(4 * nthread,
-                        maxReadGroup,
-                        concurrentFile,
-                        streams));
-
-            /** Create the threads depending on the collector type **/
-            SACollector saCollector(&rmi);
-            for (size_t i = 0; i < nthread; ++i) {
-                threads.emplace_back(processReadsSingleSA<SACollector, SpinLockT>,
-                        singleParserPtr.get(),
-                        std::ref(rmi),
-                        std::ref(saCollector),
-                        &iomutex,
-            			outLog,
-                        std::ref(hctrs),
-                        maxNumHits.getValue(),
-                        noout.getValue(),
-                        strictCheck);
-            }
-            for (auto& t : threads) { t.join(); }
+        cmd.parse(argc, argv);
+        bool pairedEnd = (read1.isSet() or read2.isSet());
+        if (pairedEnd and (read1.isSet() != read2.isSet())) {
+            consoleLog->error("You must set both the -1 and -2 arguments to align "
+                                      "paired end reads!");
+            std::exit(1);
         }
-	std::cerr << "\n\n";
+
+        if (pairedEnd and unmatedReads.isSet()) {
+            consoleLog->error("You cannot specify both paired-end and unmated "
+                                      "reads in the input!");
+            std::exit(1);
+        }
+
+        if (!pairedEnd and !unmatedReads.isSet()) {
+            consoleLog->error("You must specify input; either both paired-end "
+                                      "or unmated reads!");
+            std::exit(1);
+
+        }
+
+        std::string indexPrefix(index.getValue());
+        if (indexPrefix.back() != '/') {
+            indexPrefix += "/";
+        }
+
+        if (!rapmap::fs::DirExists(indexPrefix.c_str())) {
+            consoleLog->error("It looks like the index you provided [{}] "
+                                      "doesn't exist", indexPrefix);
+            std::exit(1);
+        }
+
+        IndexHeader h;
+        std::ifstream indexStream(indexPrefix + "header.json");
+        {
+            cereal::JSONInputArchive ar(indexStream);
+            ar(h);
+        }
+        indexStream.close();
+
+        if (h.indexType() != IndexType::QUASI) {
+            consoleLog->error("The index {} does not appear to be of the "
+                                      "appropriate type (quasi)", indexPrefix);
+            std::exit(1);
+        }
+
+        RapMapSAIndex rmi;
+        rmi.load(indexPrefix);
+
+        std::cerr << "\n\n\n\n";
+
+        // from: http://stackoverflow.com/questions/366955/obtain-a-stdostream-either-from-stdcout-or-stdofstreamfile
+        // set either a file or cout as the output stream
+        std::streambuf* outBuf;
+        std::ofstream outFile;
+        bool haveOutputFile{false};
+        if (outname.getValue() == "") {
+            outBuf = std::cout.rdbuf();
+        } else {
+            outFile.open(outname.getValue());
+            outBuf = outFile.rdbuf();
+            haveOutputFile = true;
+        }
+        // Now set the output stream to the buffer, which is
+        // either std::cout, or a file.
+        std::ostream outStream(outBuf);
+
+        // Must be a power of 2
+        size_t queueSize{268435456};
+        spdlog::set_async_mode(queueSize);
+        auto outputSink = std::make_shared<spdlog::sinks::ostream_sink_mt>(outStream);
+        std::shared_ptr<spdlog::logger> outLog = std::make_shared<spdlog::logger>("outLog", outputSink);
+        outLog->set_pattern("%v");
+
+        uint32_t nthread = numThreads.getValue();
+        std::unique_ptr<paired_parser> pairParserPtr{nullptr};
+        std::unique_ptr<single_parser> singleParserPtr{nullptr};
+
+        if (!noout.getValue()) {
+            rapmap::utils::writeSAMHeader(rmi, outLog);
+        }
+
+        bool strictCheck = strict.getValue();
+        SpinLockT iomutex;
+        {
+            ScopedTimer timer;
+            HitCounters hctrs;
+            consoleLog->info("mapping reads . . . \n\n\n");
+            if (pairedEnd) {
+                std::vector<std::thread> threads;
+                std::vector<std::string> read1Vec = rapmap::utils::tokenize(read1.getValue(), ',');
+                std::vector<std::string> read2Vec = rapmap::utils::tokenize(read2.getValue(), ',');
+
+                if (read1Vec.size() != read2Vec.size()) {
+                    consoleLog->error("The number of provided files for "
+                                              "-1 and -2 must be the same!");
+                    std::exit(1);
+                }
+
+                size_t numFiles = read1Vec.size() + read2Vec.size();
+                char** pairFileList = new char* [numFiles];
+                for (size_t i = 0; i < read1Vec.size(); ++i) {
+                    pairFileList[2 * i] = const_cast<char*>(read1Vec[i].c_str());
+                    pairFileList[2 * i + 1] = const_cast<char*>(read2Vec[i].c_str());
+                }
+                size_t maxReadGroup{1000}; // Number of reads in each "job"
+                size_t concurrentFile{2}; // Number of files to read simultaneously
+                pairParserPtr.reset(new paired_parser(4 * nthread, maxReadGroup,
+                                                      concurrentFile,
+                                                      pairFileList, pairFileList + numFiles));
+
+                SACollector saCollector(&rmi);
+                for (size_t i = 0; i < nthread; ++i) {
+                    threads.emplace_back(processReadsPairSA<SACollector, SpinLockT>,
+                                         pairParserPtr.get(),
+                                         std::ref(rmi),
+                                         std::ref(saCollector),
+                                         &iomutex,
+                                         outLog,
+                                         std::ref(hctrs),
+                                         maxNumHits.getValue(),
+                                         noout.getValue(),
+                                         strictCheck);
+                }
+
+                for (auto& t : threads) { t.join(); }
+                delete[] pairFileList;
+            } else {
+                std::vector<std::thread> threads;
+                std::vector<std::string> unmatedReadVec = rapmap::utils::tokenize(unmatedReads.getValue(), ',');
+                size_t maxReadGroup{1000}; // Number of reads in each "job"
+                size_t concurrentFile{1};
+                stream_manager streams(unmatedReadVec.begin(), unmatedReadVec.end(),
+                                       concurrentFile);
+                singleParserPtr.reset(new single_parser(4 * nthread,
+                                                        maxReadGroup,
+                                                        concurrentFile,
+                                                        streams));
+
+                /** Create the threads depending on the collector type **/
+                SACollector saCollector(&rmi);
+                for (size_t i = 0; i < nthread; ++i) {
+                    threads.emplace_back(processReadsSingleSA<SACollector, SpinLockT>,
+                                         singleParserPtr.get(),
+                                         std::ref(rmi),
+                                         std::ref(saCollector),
+                                         &iomutex,
+                                         outLog,
+                                         std::ref(hctrs),
+                                         maxNumHits.getValue(),
+                                         noout.getValue(),
+                                         strictCheck);
+                }
+                for (auto& t : threads) { t.join(); }
+            }
+            std::cerr << "\n\n";
 
 
-    consoleLog->info("Done mapping reads.");
-    consoleLog->info("In total saw {} reads.", hctrs.numReads);
-    consoleLog->info("Final # hits per read = {}", hctrs.totHits / static_cast<float>(hctrs.numReads));
-	consoleLog->info("flushing output queue.");
-	outLog->flush();
-	/*
-	    consoleLog->info("Discarded {} reads because they had > {} alignments",
-		    hctrs.tooManyHits, maxNumHits.getValue());
-		    */
+            consoleLog->info("Done mapping reads.");
+            consoleLog->info("In total saw {} reads.", hctrs.numReads);
+            consoleLog->info("Final # hits per read = {}", hctrs.totHits / static_cast<float>(hctrs.numReads));
+            consoleLog->info("flushing output queue.");
+            outLog->flush();
+            /*
+                consoleLog->info("Discarded {} reads because they had > {} alignments",
+                    hctrs.tooManyHits, maxNumHits.getValue());
+                    */
 
-	}
+        }
 
-	if (haveOutputFile) {
-	    outFile.close();
-	}
-	return 0;
+        if (haveOutputFile) {
+            outFile.close();
+        }
+        return 0;
     } catch (TCLAP::ArgException& e) {
-	consoleLog->error("Exception [{}] when parsing argument {}", e.error(), e.argId());
-	return 1;
+        consoleLog->error("Exception [{}] when parsing argument {}", e.error(), e.argId());
+        return 1;
     }
 
 }

@@ -3,12 +3,12 @@
 
 #include "RapMapUtils.hpp"
 
-template <typename IndexPtrT>
+template<typename IndexPtrT>
 struct SingleAlignmentFormatter {
     SingleAlignmentFormatter(IndexPtrT indexIn) : index(indexIn),
-    readTemp(1000, 'A'),
-    qualTemp(1000, '~'),
-    cigarStr(buff, 1000){
+                                                  readTemp(1000, 'A'),
+                                                  qualTemp(1000, '~'),
+                                                  cigarStr(buff, 1000) {
     }
 
     // Data members

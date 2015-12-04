@@ -11,7 +11,7 @@ public:
         while (locked.test_and_set(std::memory_order_acquire)) { ; }
     }
 
-    // from http://stackoverflow.com/questions/19742993/implementing-a-spinlock-in-boost-example-neededhttp://stackoverflow.com/questions/19742993/implementing-a-spinlock-in-boost-example-needed
+    // from http://stackoverflow.com/questions/19742993/implementing-a-spinlock-in-boost-example-needed
     // is this legit?
     bool try_lock() {
         return !locked.test_and_set(std::memory_order_acquire);

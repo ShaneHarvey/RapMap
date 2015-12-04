@@ -3,21 +3,21 @@
 
 namespace rapmap {
     namespace hit_manager {
-    	// Return hits from processedHits where position constraints
+        // Return hits from processedHits where position constraints
         // match maxDist
         bool collectHitsSimple(std::vector<ProcessedHit>& processedHits,
-                uint32_t readLen,
-                uint32_t maxDist,
-                std::vector<QuasiAlignment>& hits,
-                MateStatus mateStatus){
+                               uint32_t readLen,
+                               uint32_t maxDist,
+                               std::vector<QuasiAlignment>& hits,
+                               MateStatus mateStatus) {
             bool foundHit{false};
             // One processed hit per transcript
             for (auto& ph : processedHits) {
                 auto tid = ph.tid;
                 std::sort(ph.tqvec.begin(), ph.tqvec.end(),
-                        [](const TxpQueryPos& x, const TxpQueryPos& y) -> bool {
-                        return x.txpPosInfo.pos() < y.txpPosInfo.pos();
-                        });
+                          [](const TxpQueryPos& x, const TxpQueryPos& y) -> bool {
+                              return x.txpPosInfo.pos() < y.txpPosInfo.pos();
+                          });
                 auto& firstHit = ph.tqvec[0];
                 bool hitRC = firstHit.queryRC;
                 bool txpRC = ph.tqvec[0].txpPosInfo.isRC();
@@ -25,7 +25,7 @@ namespace rapmap {
                 int32_t hitPos = 0;
                 // The read maps to the target in the forward orientation
                 //if (isFwd) {
-                    hitPos = firstHit.txpPosInfo.pos() - firstHit.queryPos;
+                hitPos = firstHit.txpPosInfo.pos() - firstHit.queryPos;
                 //} else { // The read maps to the target in the reverse complement orientation
                 //    hitPos = firstHit.txpPosInfo.pos() + firstHit.queryPos;
                 //}
@@ -42,10 +42,10 @@ namespace rapmap {
         // Return hits from processedHits where position constraints
         // match maxDist
         bool collectHitsSimpleSA(SAHitMap& processedHits,
-                        uint32_t readLen,
-                        uint32_t maxDist,
-                        std::vector<QuasiAlignment>& hits,
-                        MateStatus mateStatus){
+                                 uint32_t readLen,
+                                 uint32_t maxDist,
+                                 std::vector<QuasiAlignment>& hits,
+                                 MateStatus mateStatus) {
             bool foundHit{false};
             // One processed hit per transcript
             auto startOffset = hits.size();
@@ -54,10 +54,10 @@ namespace rapmap {
                 if (ph.second.active) {
                     auto tid = ph.first;
                     auto minPosIt = std::min_element(ph.second.tqvec.begin(),
-                            ph.second.tqvec.end(),
-                            [](const SATxpQueryPos& a, const SATxpQueryPos& b) -> bool {
-                            return a.pos < b.pos;
-                            });
+                                                     ph.second.tqvec.end(),
+                                                     [](const SATxpQueryPos& a, const SATxpQueryPos& b) -> bool {
+                                                         return a.pos < b.pos;
+                                                     });
                     bool hitRC = minPosIt->queryRC;
                     // NOTE: Because of the way we calculate the
                     // query position (closes point of the query from the
@@ -77,35 +77,33 @@ namespace rapmap {
         // Return hits from processedHits where position constraints
         // match maxDist
         bool collectHitsSimpleSA2(std::vector<ProcessedSAHit>& processedHits,
-                        uint32_t readLen,
-                        uint32_t maxDist,
-                        std::vector<QuasiAlignment>& hits,
-                        MateStatus mateStatus){
-                bool foundHit{false};
+                                  uint32_t readLen,
+                                  uint32_t maxDist,
+                                  std::vector<QuasiAlignment>& hits,
+                                  MateStatus mateStatus) {
+            bool foundHit{false};
 
-                // One processed hit per transcript
-                for (auto& ph : processedHits) {
-                        // If this is an *active* position list
-                        if (ph.active) {
-                                auto tid = ph.tid;
-                                auto minPosIt =
-                                    std::min_element(ph.tqvec.begin(),
-                                                     ph.tqvec.end(),
-                                                     [](const SATxpQueryPos& a, const SATxpQueryPos& b) -> bool {
-                                                        return a.pos < b.pos;
-                                                        });
+            // One processed hit per transcript
+            for (auto& ph : processedHits) {
+                // If this is an *active* position list
+                if (ph.active) {
+                    auto tid = ph.tid;
+                    auto minPosIt =
+                            std::min_element(ph.tqvec.begin(),
+                                             ph.tqvec.end(),
+                                             [](const SATxpQueryPos& a, const SATxpQueryPos& b) -> bool {
+                                                 return a.pos < b.pos;
+                                             });
 
-                                bool hitRC = minPosIt->queryRC;
-                                int32_t hitPos = minPosIt->pos - minPosIt->queryPos;
-                                bool isFwd = !hitRC;
-                                hits.emplace_back(tid, hitPos, isFwd, readLen);
-                                hits.back().mateStatus = mateStatus;
-                        }
+                    bool hitRC = minPosIt->queryRC;
+                    int32_t hitPos = minPosIt->pos - minPosIt->queryPos;
+                    bool isFwd = !hitRC;
+                    hits.emplace_back(tid, hitPos, isFwd, readLen);
+                    hits.back().mateStatus = mateStatus;
                 }
-                return true;
+            }
+            return true;
         }
-
-
 
 
         // Intersects the hit h2 with outHits.
@@ -114,7 +112,7 @@ namespace rapmap {
         // which h2 appears will have an iterator to the beginning of
         // the position list for h2.
         void intersectWithOutput(HitInfo& h2, RapMapIndex& rmi,
-                std::vector<ProcessedHit>& outHits) {
+                                 std::vector<ProcessedHit>& outHits) {
 
             // Convenient bindings for variables we'll use
             auto& eqClasses = rmi.eqClassList;
@@ -171,7 +169,7 @@ namespace rapmap {
         }
 
         /** from http://en.cppreference.com/w/cpp/algorithm/lower_bound **/
-        template <typename ForwardIt>
+        template<typename ForwardIt>
         ForwardIt binarySearch(
                 ForwardIt first,
                 ForwardIt last,
@@ -211,7 +209,7 @@ namespace rapmap {
             uint32_t min = 0, max = n;
             while (min < max) {
                 int middle = (min + max) >> 1;
-                min = (key > arr[middle]) ? middle+1 : min;
+                min = (key > arr[middle]) ? middle + 1 : min;
                 max = (key <= arr[middle]) ? middle : max;
             }
             return (arr[min] == key) ? min : std::numeric_limits<uint32_t>::max();
@@ -221,32 +219,32 @@ namespace rapmap {
         // ASSUMES SENTINEL VALUE (value in array >= key *MUST* exist)
         uint32_t linearSearchUnrolled16(const std::vector<uint32_t>& arr, size_t n, uint32_t key) {
             uint32_t i{0};
-                for (;;) {
-                    if ( arr[i + 0] >= key) return  i + 0;
-                    if ( arr[i + 1] >= key) return  i + 1;
-                    if ( arr[i + 2] >= key) return  i + 2;
-                    if ( arr[i + 3] >= key) return  i + 3;
-                    if ( arr[i + 4] >= key) return  i + 4;
-                    if ( arr[i + 5] >= key) return  i + 5;
-                    if ( arr[i + 6] >= key) return  i + 6;
-                    if ( arr[i + 7] >= key) return  i + 7;
-                    if ( arr[i + 8] >= key) return  i + 8;
-                    if ( arr[i + 9] >= key) return  i + 9;
-                    if ( arr[i + 10] >= key) return i + 10;
-                    if ( arr[i + 11] >= key) return i + 11;
-                    if ( arr[i + 12] >= key) return i + 12;
-                    if ( arr[i + 13] >= key) return i + 13;
-                    if ( arr[i + 14] >= key) return i + 14;
-                    if ( arr[i + 15] >= key) return i + 15;
-                    i += 16;
-                }
+            for (; ;) {
+                if (arr[i + 0] >= key) return i + 0;
+                if (arr[i + 1] >= key) return i + 1;
+                if (arr[i + 2] >= key) return i + 2;
+                if (arr[i + 3] >= key) return i + 3;
+                if (arr[i + 4] >= key) return i + 4;
+                if (arr[i + 5] >= key) return i + 5;
+                if (arr[i + 6] >= key) return i + 6;
+                if (arr[i + 7] >= key) return i + 7;
+                if (arr[i + 8] >= key) return i + 8;
+                if (arr[i + 9] >= key) return i + 9;
+                if (arr[i + 10] >= key) return i + 10;
+                if (arr[i + 11] >= key) return i + 11;
+                if (arr[i + 12] >= key) return i + 12;
+                if (arr[i + 13] >= key) return i + 13;
+                if (arr[i + 14] >= key) return i + 14;
+                if (arr[i + 15] >= key) return i + 15;
+                i += 16;
             }
+        }
 
         void intersectSAIntervalWithOutput2(SAIntervalHit& h,
-                RapMapSAIndex& rmi,
+                                            RapMapSAIndex& rmi,
                 //fbs::eytzinger_array_bfp<uint32_t, uint32_t, true>& outTxps,
                 //std::vector<uint32_t>& outTxps,
-                SAProcessedHitVec& processedHits) {
+                                            SAProcessedHitVec& processedHits) {
             // Convenient bindings for variables we'll use
             auto& SA = rmi.SA;
             auto& txpIDs = rmi.positionIDs;
@@ -274,7 +272,7 @@ namespace rapmap {
                 }
                 // If we found this transcript (make sure it's not the sentinel) then
                 // add it to the list.
-                if ( searchInd < arraySize - 1 ) {
+                if (searchInd < arraySize - 1) {
                     //auto offset = std::distance(txpIt, searchIt);
                     pos = static_cast<uint32_t>(SA[i]) - txpStarts[rightTxp];
                     outStructs[searchInd].tqvec.emplace_back(pos, h.queryPos, h.queryRC);
@@ -348,40 +346,39 @@ namespace rapmap {
 
 
         void intersectSAIntervalWithOutput(SAIntervalHit& h,
-                        RapMapSAIndex& rmi,
-			uint32_t intervalCounter,
-                        SAHitMap& outHits) {
-                // Convenient bindings for variables we'll use
-                auto& SA = rmi.SA;
-                //auto& txpIDs = rmi.positionIDs;
-		auto& rankDict = rmi.rankDict;
-                auto& txpStarts = rmi.txpOffsets;
+                                           RapMapSAIndex& rmi,
+                                           uint32_t intervalCounter,
+                                           SAHitMap& outHits) {
+            // Convenient bindings for variables we'll use
+            auto& SA = rmi.SA;
+            //auto& txpIDs = rmi.positionIDs;
+            auto& rankDict = rmi.rankDict;
+            auto& txpStarts = rmi.txpOffsets;
 
-                // Walk through every hit in the new interval 'h'
-                for (int i = h.begin; i != h.end; ++i) {
-                        //auto txpID = txpIDs[SA[i]];
-			// auto txpID = rankDict.Rank(SA[i], 1);
-			auto txpID = rmi.transcriptAtPosition(SA[i]);
-                        auto txpListIt = outHits.find(txpID);
-                        // If we found this transcript
-                        // Add this position to the list
-                        if (txpListIt != outHits.end()) {
-				txpListIt->second.numActive += (txpListIt->second.numActive == intervalCounter - 1) ? 1 : 0;
-				if (txpListIt->second.numActive == intervalCounter) {
-                                    auto globalPos = SA[i];
-                                    auto localPos = globalPos - txpStarts[txpID];
-                                    txpListIt->second.tqvec.emplace_back(localPos, h.queryPos, h.queryRC);
-				}
-                        }
+            // Walk through every hit in the new interval 'h'
+            for (int i = h.begin; i != h.end; ++i) {
+                //auto txpID = txpIDs[SA[i]];
+                // auto txpID = rankDict.Rank(SA[i], 1);
+                auto txpID = rmi.transcriptAtPosition(SA[i]);
+                auto txpListIt = outHits.find(txpID);
+                // If we found this transcript
+                // Add this position to the list
+                if (txpListIt != outHits.end()) {
+                    txpListIt->second.numActive += (txpListIt->second.numActive == intervalCounter - 1) ? 1 : 0;
+                    if (txpListIt->second.numActive == intervalCounter) {
+                        auto globalPos = SA[i];
+                        auto localPos = globalPos - txpStarts[txpID];
+                        txpListIt->second.tqvec.emplace_back(localPos, h.queryPos, h.queryRC);
+                    }
                 }
+            }
         }
-
 
 
         std::vector<ProcessedHit> intersectHits(
                 std::vector<HitInfo>& inHits,
                 RapMapIndex& rmi
-                ) {
+        ) {
             // Each inHit is a HitInfo structure that contains
             // an iterator to the KmerInfo for this k-mer, the k-mer ID,
             // and the query position where this k-mer appeared.
@@ -393,7 +390,7 @@ namespace rapmap {
             // with less than 2 hits.
             if (inHits.size() < 2) {
                 std::cerr << "intersectHits() called with < 2 k-mer "
-                    " hits; this shouldn't happen\n";
+                        " hits; this shouldn't happen\n";
                 return {};
             }
 
@@ -446,10 +443,10 @@ namespace rapmap {
             size_t requiredNumHits = inHits.size();
             // do we need stable_partition? --- don't think so.
             auto newEnd = std::stable_partition(outHits.begin(), outHits.end(),
-                    [requiredNumHits] (const ProcessedHit& ph) -> bool {
-                    // should never really be greater.
-                    return (ph.tqvec.size() >= requiredNumHits);
-                    });
+                                                [requiredNumHits](const ProcessedHit& ph) -> bool {
+                                                    // should never really be greater.
+                                                    return (ph.tqvec.size() >= requiredNumHits);
+                                                });
             /*
                bool didDrop = false;
                for (auto it = newEnd; it != outHits.end(); ++it) {
@@ -487,7 +484,7 @@ namespace rapmap {
         std::vector<ProcessedSAHit> intersectSAHits2(
                 std::vector<SAIntervalHit>& inHits,
                 RapMapSAIndex& rmi
-                ) {
+        ) {
 
             // Each inHit is a SAIntervalHit structure that contains
             // an SA interval with all hits for a particuar query location
@@ -502,7 +499,7 @@ namespace rapmap {
             SAProcessedHitVec outHits;
             if (inHits.size() < 2) {
                 std::cerr << "intersectHitsSA() called with < 2 k-mer "
-                    " hits; this shouldn't happen\n";
+                        " hits; this shouldn't happen\n";
                 return outHits.hits;
             }
 
@@ -526,32 +523,32 @@ namespace rapmap {
             std::map<int, uint32_t> posMap;
             // =========
             //{ // Add the info from minHit to outHits
-                for (int i = minHit->begin; i < minHit->end; ++i) {
-                    auto globalPos = SA[i];
-                    auto tid = txpIDs[globalPos];
-                    auto txpPos = globalPos - txpStarts[tid];
-                    auto posIt = posMap.find(tid);
-                    if (posIt == posMap.end()) {
-                        posMap[tid] = outStructs.size();
-                        outStructs.emplace_back(tid, txpPos, minHit->queryPos, minHit->queryRC);
-                    } else {
-                        outStructs[posIt->second].tqvec.emplace_back(txpPos, minHit->queryPos, minHit->queryRC);
-                    }
+            for (int i = minHit->begin; i < minHit->end; ++i) {
+                auto globalPos = SA[i];
+                auto tid = txpIDs[globalPos];
+                auto txpPos = globalPos - txpStarts[tid];
+                auto posIt = posMap.find(tid);
+                if (posIt == posMap.end()) {
+                    posMap[tid] = outStructs.size();
+                    outStructs.emplace_back(tid, txpPos, minHit->queryPos, minHit->queryRC);
+                } else {
+                    outStructs[posIt->second].tqvec.emplace_back(txpPos, minHit->queryPos, minHit->queryRC);
                 }
-                std::sort(outStructs.begin(), outStructs.end(),
-                          [] (const ProcessedSAHit& a, const ProcessedSAHit& b) -> bool {
-                            return a.tid < b.tid;
-                          });
-                for (auto it = outStructs.begin(); it != outStructs.end(); ++it) {
-                    outTxps.emplace_back(it->tid);
-                }
-                // Sentinel value for search
-                outTxps.emplace_back(std::numeric_limits<uint32_t>::max());
-                /*
-                fbs::eytzinger_array_bfp<uint32_t, uint32_t, true> searchArray(
-                        txpIndices.begin(), txpIndices.size()
-                        );
-                        */
+            }
+            std::sort(outStructs.begin(), outStructs.end(),
+                      [](const ProcessedSAHit& a, const ProcessedSAHit& b) -> bool {
+                          return a.tid < b.tid;
+                      });
+            for (auto it = outStructs.begin(); it != outStructs.end(); ++it) {
+                outTxps.emplace_back(it->tid);
+            }
+            // Sentinel value for search
+            outTxps.emplace_back(std::numeric_limits<uint32_t>::max());
+            /*
+            fbs::eytzinger_array_bfp<uint32_t, uint32_t, true> searchArray(
+                    txpIndices.begin(), txpIndices.size()
+                    );
+                    */
             //}
             // =========
 
@@ -577,7 +574,7 @@ namespace rapmap {
         SAHitMap intersectSAHits(
                 std::vector<SAIntervalHit>& inHits,
                 RapMapSAIndex& rmi
-                ) {
+        ) {
 
             // Each inHit is a SAIntervalHit structure that contains
             // an SA interval with all hits for a particuar query location
@@ -592,14 +589,14 @@ namespace rapmap {
             SAHitMap outHits;
             if (inHits.size() < 2) {
                 std::cerr << "intersectHitsSA() called with < 2 k-mer "
-                    " hits; this shouldn't happen\n";
+                        " hits; this shouldn't happen\n";
                 return outHits;
             }
 
             auto& SA = rmi.SA;
             auto& txpStarts = rmi.txpOffsets;
             //auto& txpIDs = rmi.positionIDs;
-	    auto& rankDict = rmi.rankDict;
+            auto& rankDict = rmi.rankDict;
 
             // Start with the smallest interval
             // i.e. interval with the fewest hits.
@@ -616,7 +613,7 @@ namespace rapmap {
                 for (int i = minHit->begin; i < minHit->end; ++i) {
                     auto globalPos = SA[i];
                     //auto tid = txpIDs[globalPos];
-		    auto tid = rmi.transcriptAtPosition(globalPos);
+                    auto tid = rmi.transcriptAtPosition(globalPos);
                     auto txpPos = globalPos - txpStarts[tid];
                     outHits[tid].tqvec.emplace_back(txpPos, minHit->queryPos, minHit->queryRC);
                 }
@@ -625,11 +622,11 @@ namespace rapmap {
 
             // Now intersect everything in inHits (apart from minHits)
             // to get the final set of mapping info.
-	    size_t intervalCounter{2};
+            size_t intervalCounter{2};
             for (auto& h : inHits) {
                 if (&h != minHit) { // don't intersect minHit with itself
                     intersectSAIntervalWithOutput(h, rmi, intervalCounter, outHits);
-		    ++intervalCounter;
+                    ++intervalCounter;
                 }
             }
 

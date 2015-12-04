@@ -24,22 +24,22 @@
 #include "RapMapUtils.hpp"
 
 class RapMapSAIndex {
-    public:
-	struct BitArrayDeleter {
-	   void operator()(BIT_ARRAY* b) {
-	       if(b != nullptr) {
-	           bit_array_free(b);
-	       }
-	   }
-	};
+public:
+    struct BitArrayDeleter {
+        void operator()(BIT_ARRAY* b) {
+            if (b != nullptr) {
+                bit_array_free(b);
+            }
+        }
+    };
 
-	using BitArrayPointer = std::unique_ptr<BIT_ARRAY, BitArrayDeleter>;
+    using BitArrayPointer = std::unique_ptr<BIT_ARRAY, BitArrayDeleter>;
 
     RapMapSAIndex();
 
-	// Given a position, p, in the concatenated text,
-	// return the corresponding transcript
-	uint32_t transcriptAtPosition(uint32_t p);
+    // Given a position, p, in the concatenated text,
+    // return the corresponding transcript
+    uint32_t transcriptAtPosition(uint32_t p);
 
     bool load(const std::string& indDir);
 
@@ -55,13 +55,14 @@ class RapMapSAIndex {
     std::vector<uint32_t> txpLens;
     std::vector<uint32_t> positionIDs;
     google::dense_hash_map<uint64_t,
-                        rapmap::utils::SAInterval,
-                        rapmap::utils::KmerKeyHasher> khash;
-                       // ::NopointerSerializer(), &hashStream);
-        /*
+            rapmap::utils::SAInterval,
+            rapmap::utils::KmerKeyHasher> khash;
+            // ::NopointerSerializer(), &hashStream);
+    /*
     std::unordered_map<uint64_t,
                        rapmap::utils::SAInterval,
                        rapmap::utils::KmerKeyHasher> khash;
-                       */
+    */
 };
+
 #endif //__RAPMAP_SA_INDEX_HPP__

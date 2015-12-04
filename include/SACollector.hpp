@@ -9,15 +9,15 @@
 #include <iterator>
 
 class SACollector {
-    public:
+public:
 
-    SACollector(RapMapSAIndex* rmi) : rmi_(rmi) {}
+    SACollector(RapMapSAIndex* rmi) : rmi_(rmi) { }
 
-		bool operator()(std::string& read,
-				std::vector<rapmap::utils::QuasiAlignment>& hits,
-				SASearcher& saSearcher,
-				rapmap::utils::MateStatus mateStatus,
-				bool strictCheck = false) {
+    bool operator()(std::string& read,
+                    std::vector<rapmap::utils::QuasiAlignment>& hits,
+                    SASearcher& saSearcher,
+                    rapmap::utils::MateStatus mateStatus,
+                    bool strictCheck = false) {
 
         using QuasiAlignment = rapmap::utils::QuasiAlignment;
         using MateStatus = rapmap::utils::MateStatus;
@@ -56,13 +56,17 @@ class SACollector {
         rapmap::utils::my_mer mer;
         rapmap::utils::my_mer rcMer;
 
-        enum HitStatus { ABSENT = -1, UNTESTED = 0, PRESENT = 1 };
+        enum HitStatus {
+            ABSENT = -1, UNTESTED = 0, PRESENT = 1
+        };
         // Record if k-mers are hits in the
         // fwd direction, rc direction or both
         struct KmerDirScore {
             KmerDirScore(rapmap::utils::my_mer kmerIn, HitStatus fwdScoreIn, HitStatus rcScoreIn) :
-                kmer(kmerIn), fwdScore(fwdScoreIn), rcScore(rcScoreIn) {}
-            KmerDirScore() : fwdScore(UNTESTED), rcScore(UNTESTED) {}
+                    kmer(kmerIn), fwdScore(fwdScoreIn), rcScore(rcScoreIn) { }
+
+            KmerDirScore() : fwdScore(UNTESTED), rcScore(UNTESTED) { }
+
             rapmap::utils::my_mer kmer;
             HitStatus fwdScore{UNTESTED};
             HitStatus rcScore{UNTESTED};
@@ -86,9 +90,9 @@ class SACollector {
         // value of 0 means no overlap (the new search begins at the next
         // base) while a value of (k - 1) means that k-1 bases (one less than
         // the k-mer size) must overlap.
-        int skipOverlap = k-1;
+        int skipOverlap = k - 1;
         // Number of nucleotides to skip when encountering a homopolymer k-mer.
-        int homoPolymerSkip = k/2;
+        int homoPolymerSkip = k / 2;
 
         // Find a hit within the read
         // While we haven't fallen off the end
@@ -107,12 +111,16 @@ class SACollector {
             // If the next k-bases are valid, get the k-mer and
             // reverse complement k-mer
             mer = rapmap::utils::my_mer(read.c_str() + pos);
-            if (mer.is_homopolymer()) { rb += homoPolymerSkip; re += homoPolymerSkip; continue; }
+            if (mer.is_homopolymer()) {
+                rb += homoPolymerSkip;
+                re += homoPolymerSkip;
+                continue;
+            }
             rcMer = mer.get_reverse_complement();
 
             // See if we can find this k-mer in the hash
-            auto merIt = khash.find(mer.get_bits(0, 2*k));
-            auto rcMerIt = khash.find(rcMer.get_bits(0, 2*k));
+            auto merIt = khash.find(mer.get_bits(0, 2 * k));
+            auto rcMerIt = khash.find(rcMer.get_bits(0, 2 * k));
 
             // If we can find the k-mer in the hash, get its SA interval
             if (merIt != khash.end()) {
@@ -120,11 +128,11 @@ class SACollector {
                 int ub = merIt->second.end;
 
                 // lb must be 1 *less* then the current lb
-                auto lbRestart = std::max(static_cast<int>(0), lb-1);
+                auto lbRestart = std::max(static_cast<int>(0), lb - 1);
                 // Extend the SA interval using the read sequence as far as
                 // possible
                 std::tie(lbLeftFwd, ubLeftFwd, matchedLen) =
-                    saSearcher.extendSearchNaive(lbRestart, ub, k, rb, readEndIt);
+                        saSearcher.extendSearchNaive(lbRestart, ub, k, rb, readEndIt);
 
                 // If the SA interval is valid, and not too wide, then record
                 // the hit.
@@ -145,10 +153,10 @@ class SACollector {
                         // If we didn't end the match b/c we exhausted the query
                         // test the mismatching k-mer in the other strand
                         // TODO: check for 'N'?
-                        if (rb + matchedLen < readEndIt){
+                        if (rb + matchedLen < readEndIt) {
                             auto kmerPos = std::distance(readStartIt, rb + matchedLen - skipOverlap);
                             mer = rapmap::utils::my_mer(read.c_str() + kmerPos);
-                            kmerScores.emplace_back(mer , ABSENT, UNTESTED);
+                            kmerScores.emplace_back(mer, ABSENT, UNTESTED);
                         }
                     } else { // no strict check
                         ++fwdHit;
@@ -178,7 +186,8 @@ class SACollector {
                 foundHit = true;
                 break;
             }
-            ++rb; ++re;
+            ++rb;
+            ++re;
         }
 
         // If we went the entire length of the read without finding a hit
@@ -201,13 +210,13 @@ class SACollector {
             // T[SA[lb]:] and T[SA[ub-1]:]
             auto remainingLength = std::distance(rb + matchLen, readEndIt);
             int32_t lce = saSearcher.lce(
-                    lbLeftFwd, ubLeftFwd-1, matchLen, remainingLength);
+                    lbLeftFwd, ubLeftFwd - 1, matchLen, remainingLength);
             auto fwdSkip = std::max(matchLen - skipOverlap, lce - skipOverlap);
 
             size_t nextInformativePosition = std::min(
-                    std::max(0, static_cast<int>(readLen)- static_cast<int>(k)),
-                    static_cast<int>(std::distance(readStartIt, rb) + fwdSkip)
-                    );
+                    std::max((size_t) 0, static_cast<size_t>(readLen) - static_cast<size_t>(k)),
+                    static_cast<size_t>(std::distance(readStartIt, rb) + fwdSkip)
+            );
 
             rb = read.begin() + nextInformativePosition;
             re = rb + k;
@@ -239,29 +248,33 @@ class SACollector {
                 if (re <= readEndIt) {
 
                     mer = rapmap::utils::my_mer(read.c_str() + pos);
-                    if (mer.is_homopolymer()) { rb += homoPolymerSkip; re = rb + k; continue; }
-                    auto merIt = khash.find(mer.get_bits(0, 2*k));
+                    if (mer.is_homopolymer()) {
+                        rb += homoPolymerSkip;
+                        re = rb + k;
+                        continue;
+                    }
+                    auto merIt = khash.find(mer.get_bits(0, 2 * k));
 
                     if (merIt != khash.end()) {
                         if (strictCheck) {
                             ++fwdHit;
                             kmerScores.emplace_back(mer, PRESENT, UNTESTED);
                             auto rcMer = mer.get_reverse_complement();
-                            auto rcMerIt = khash.find(rcMer.get_bits(0, 2*k));
+                            auto rcMerIt = khash.find(rcMer.get_bits(0, 2 * k));
                             if (rcMerIt != khash.end()) {
                                 ++rcHit;
                                 kmerScores.back().rcScore = PRESENT;
                             }
                         }
 
-                      lbRightFwd = merIt->second.begin;
-                      ubRightFwd = merIt->second.end;
+                        lbRightFwd = merIt->second.begin;
+                        ubRightFwd = merIt->second.end;
 
                         // lb must be 1 *less* then the current lb
                         lbRightFwd = std::max(0, lbRightFwd - 1);
                         std::tie(lbRightFwd, ubRightFwd, matchedLen) =
-                            saSearcher.extendSearchNaive(lbRightFwd, ubRightFwd,
-                                    k, rb, readEndIt);
+                                saSearcher.extendSearchNaive(lbRightFwd, ubRightFwd,
+                                                             k, rb, readEndIt);
 
                         int diff = ubRightFwd - lbRightFwd;
                         if (ubRightFwd > lbRightFwd and diff < maxInterval) {
@@ -270,10 +283,10 @@ class SACollector {
                             // If we didn't end the match b/c we exhausted the query
                             // test the mismatching k-mer in the other strand
                             // TODO: check for 'N'?
-                            if (strictCheck and rb + matchedLen < readEndIt){
+                            if (strictCheck and rb + matchedLen < readEndIt) {
                                 auto kmerPos = std::distance(readStartIt, rb + matchedLen - skipOverlap);
                                 mer = rapmap::utils::my_mer(read.c_str() + kmerPos);
-                                kmerScores.emplace_back(mer , ABSENT, UNTESTED);
+                                kmerScores.emplace_back(mer, ABSENT, UNTESTED);
                             }
                         }
 
@@ -281,7 +294,7 @@ class SACollector {
                         auto mismatchIt = rb + matchedLen;
                         if (mismatchIt < readEndIt) {
                             auto remainingDistance = std::distance(mismatchIt, readEndIt);
-                            auto lce = saSearcher.lce(lbRightFwd, ubRightFwd-1, matchedLen, remainingDistance);
+                            auto lce = saSearcher.lce(lbRightFwd, ubRightFwd - 1, matchedLen, remainingDistance);
 
                             // Where we would jump if we just used the MMP
                             auto skipMatch = mismatchIt - skipOverlap;
@@ -319,7 +332,7 @@ class SACollector {
             auto revRE = revRB + k;
 
             auto invalidPosIt = revRB;
-            while (revRE <= revReadEndIt){
+            while (revRE <= revReadEndIt) {
 
                 revRE = revRB + k;
                 if (revRE > revReadEndIt) { break; }
@@ -329,9 +342,9 @@ class SACollector {
                 // Ns
                 if (invalidPosIt != revReadEndIt) {
                     invalidPosIt = std::find_if(revRB, revRE,
-                                                 [](const char c) -> bool {
-                                                     return c == 'n' or c == 'N';
-                                                 });
+                                                [](const char c) -> bool {
+                                                    return c == 'n' or c == 'N';
+                                                });
                 }
 
                 // If we found an N before the end of the k-mer
@@ -348,16 +361,20 @@ class SACollector {
 
                 // Get the k-mer and query it in the hash
                 mer = rapmap::utils::my_mer(read.c_str() + pos);
-                if (mer.is_homopolymer()) { revRB += homoPolymerSkip; revRE += homoPolymerSkip; continue; }
+                if (mer.is_homopolymer()) {
+                    revRB += homoPolymerSkip;
+                    revRE += homoPolymerSkip;
+                    continue;
+                }
                 rcMer = mer.get_reverse_complement();
-                auto rcMerIt = khash.find(rcMer.get_bits(0, 2*k));
+                auto rcMerIt = khash.find(rcMer.get_bits(0, 2 * k));
 
                 // If we found the k-mer
                 if (rcMerIt != khash.end()) {
                     if (strictCheck) {
                         ++rcHit;
                         kmerScores.emplace_back(mer, UNTESTED, PRESENT);
-                        auto merIt = khash.find(mer.get_bits(0, 2*k));
+                        auto merIt = khash.find(mer.get_bits(0, 2 * k));
                         if (merIt != khash.end()) {
                             ++fwdHit;
                             kmerScores.back().fwdScore = PRESENT;
@@ -372,8 +389,8 @@ class SACollector {
                     // We can't move any further in the reverse complement direction
                     lbRightRC = std::max(0, lbRightRC - 1);
                     std::tie(lbRightRC, ubRightRC, matchedLen) =
-                        saSearcher.extendSearchNaive(lbRightRC, ubRightRC, k,
-                                revRB, revReadEndIt, true);
+                            saSearcher.extendSearchNaive(lbRightRC, ubRightRC, k,
+                                                         revRB, revReadEndIt, true);
 
                     int diff = ubRightRC - lbRightRC;
                     if (ubRightRC > lbRightRC and diff < maxInterval) {
@@ -382,10 +399,10 @@ class SACollector {
                         // If we didn't end the match b/c we exhausted the query
                         // test the mismatching k-mer in the other strand
                         // TODO: check for 'N'?
-                        if (strictCheck and revRB + matchedLen < revReadEndIt){
+                        if (strictCheck and revRB + matchedLen < revReadEndIt) {
                             auto kmerPos = std::distance(revRB + matchedLen, revReadEndIt);
                             mer = rapmap::utils::my_mer(read.c_str() + kmerPos);
-                            kmerScores.emplace_back(mer , UNTESTED, ABSENT);
+                            kmerScores.emplace_back(mer, UNTESTED, ABSENT);
                         }
                     }
 
@@ -393,8 +410,8 @@ class SACollector {
                     auto mismatchIt = revRB + matchedLen;
                     if (mismatchIt < revReadEndIt) {
                         auto remainingDistance =
-                            std::distance(mismatchIt, revReadEndIt);
-                        auto lce = saSearcher.lce(lbRightRC, ubRightRC-1,
+                                std::distance(mismatchIt, revReadEndIt);
+                        auto lce = saSearcher.lce(lbRightRC, ubRightRC - 1,
                                                   matchedLen, remainingDistance);
 
                         // Where we would jump if we just used the MMP
@@ -439,7 +456,7 @@ class SACollector {
                 for (auto& kms : kmerScores) {
                     // If the forward k-mer is untested, then test it
                     if (kms.fwdScore == UNTESTED) {
-                        auto merIt = khash.find(mer.get_bits(0, 2*k));
+                        auto merIt = khash.find(mer.get_bits(0, 2 * k));
                         kms.fwdScore = (merIt != khash.end()) ? PRESENT : ABSENT;
                     }
                     // accumulate the score
@@ -448,7 +465,7 @@ class SACollector {
                     // If the rc k-mer is untested, then test it
                     if (kms.rcScore == UNTESTED) {
                         rcMer = kms.kmer.get_reverse_complement();
-                        auto rcMerIt = khash.find(rcMer.get_bits(0, 2*k));
+                        auto rcMerIt = khash.find(rcMer.get_bits(0, 2 * k));
                         kms.rcScore = (rcMerIt != khash.end()) ? PRESENT : ABSENT;
                     }
                     // accumulate the score
@@ -496,17 +513,17 @@ class SACollector {
             auto sortStartIt = hits.begin() + initialSize;
             auto sortEndIt = hits.end();
             std::sort(sortStartIt, sortEndIt,
-                    [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                    if (a.tid == b.tid) {
-                    return a.pos < b.pos;
-                    } else {
-                    return a.tid < b.tid;
-                    }
-                    });
+                      [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
+                          if (a.tid == b.tid) {
+                              return a.pos < b.pos;
+                          } else {
+                              return a.tid < b.tid;
+                          }
+                      });
             auto newEnd = std::unique(hits.begin() + initialSize, hits.end(),
-                    [] (const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                    return a.tid == b.tid;
-                    });
+                                      [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
+                                          return a.tid == b.tid;
+                                      });
             hits.resize(std::distance(hits.begin(), newEnd));
         }
         auto fwdHitsEnd = hits.size();
@@ -532,17 +549,17 @@ class SACollector {
             auto sortStartIt = hits.begin() + rcHitsStart;
             auto sortEndIt = hits.end();
             std::sort(sortStartIt, sortEndIt,
-                    [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                    if (a.tid == b.tid) {
-                    return a.pos < b.pos;
-                    } else {
-                    return a.tid < b.tid;
-                    }
-                    });
+                      [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
+                          if (a.tid == b.tid) {
+                              return a.pos < b.pos;
+                          } else {
+                              return a.tid < b.tid;
+                          }
+                      });
             auto newEnd = std::unique(sortStartIt, sortEndIt,
-                    [] (const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                    return a.tid == b.tid;
-                    });
+                                      [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
+                                          return a.tid == b.tid;
+                                      });
             hits.resize(std::distance(hits.begin(), newEnd));
         }
         auto rcHitsEnd = hits.size();
@@ -551,23 +568,23 @@ class SACollector {
         if ((fwdHitsEnd > fwdHitsStart) and (rcHitsEnd > rcHitsStart)) {
             // Merge the forward and reverse hits
             std::inplace_merge(hits.begin() + fwdHitsStart, hits.begin() + fwdHitsEnd, hits.begin() + rcHitsEnd,
-                    [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                    return a.tid < b.tid;
-                    });
+                               [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
+                                   return a.tid < b.tid;
+                               });
             // And get rid of duplicate transcript IDs
             auto newEnd = std::unique(hits.begin() + fwdHitsStart, hits.begin() + rcHitsEnd,
-                    [] (const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                    return a.tid == b.tid;
-                    });
+                                      [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
+                                          return a.tid == b.tid;
+                                      });
             hits.resize(std::distance(hits.begin(), newEnd));
         }
         // Return true if we had any valid hits and false otherwise.
         return foundHit;
-        }
+    }
 
-    private:
-        RapMapSAIndex* rmi_;
-	/*
+private:
+    RapMapSAIndex* rmi_;
+    /*
     std::string revComp(std::string& str) {
         std::string rc(str.size(), 'A');
         auto outIt = rc.begin();
@@ -595,7 +612,7 @@ class SACollector {
         }
         return rc;
     }
-	*/
+    */
 
 };
 

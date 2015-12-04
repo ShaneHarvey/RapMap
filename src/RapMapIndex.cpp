@@ -1,6 +1,6 @@
 #include "RapMapIndex.hpp"
 
-RapMapIndex::RapMapIndex() {}
+RapMapIndex::RapMapIndex() { }
 
 bool RapMapIndex::load(std::string& indexPrefix) {
     auto logger = spdlog::get("stderrLog");
@@ -48,13 +48,13 @@ bool RapMapIndex::load(std::string& indexPrefix) {
         // We can close the file now
         bis.close();
 
-        merHash.reset( new FileMerArray(rawHashMem.get(),//mapFile->base() + bh.offset(),
-                    sizeInBytes,
-                    bh.size(),
-                    bh.key_len(),
-                    bh.counter_len(),
-                    bh.max_reprobe(),
-                    bh.matrix()));
+        merHash.reset(new FileMerArray(rawHashMem.get(),//mapFile->base() + bh.offset(),
+                                       sizeInBytes,
+                                       bh.size(),
+                                       bh.key_len(),
+                                       bh.counter_len(),
+                                       bh.max_reprobe(),
+                                       bh.matrix()));
         // Set the key size
         rapmap::utils::my_mer::k(bh.key_len() / 2);
         logger->info("done");

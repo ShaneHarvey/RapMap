@@ -3,15 +3,15 @@
 
 #include "RapMapUtils.hpp"
 
-template <typename IndexPtrT>
+template<typename IndexPtrT>
 struct PairAlignmentFormatter {
     PairAlignmentFormatter(IndexPtrT indexIn) : index(indexIn),
-    read1Temp(1000, 'A'),
-    qual1Temp(1000, '~'),
-    read2Temp(1000, 'A'),
-    qual2Temp(1000, '~'),
-    cigarStr1(buff1, 1000),
-    cigarStr2(buff2, 1000) {
+                                                read1Temp(1000, 'A'),
+                                                qual1Temp(1000, '~'),
+                                                read2Temp(1000, 'A'),
+                                                qual2Temp(1000, '~'),
+                                                cigarStr1(buff1, 1000),
+                                                cigarStr2(buff2, 1000) {
     }
 
     // Data members

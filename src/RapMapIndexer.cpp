@@ -71,7 +71,7 @@ void markSeen(uint32_t& i) { i |= uint32HighestBitMask; }
 uint32_t unmarked(uint32_t i) { return (i & uint31LowBitMask); }
 
 class VectorHasher {
-    public:
+public:
     size_t operator()(const std::vector<uint32_t>& vec) const {
         size_t hashVal{0};
         for (auto v : vec) {
@@ -83,7 +83,7 @@ class VectorHasher {
 
 struct PosInfo {
     PosInfo(uint64_t merIDIn, bool isRCIn, uint32_t posIn) :
-        merID(merIDIn), isRC(isRCIn), pos(posIn) {}
+            merID(merIDIn), isRC(isRCIn), pos(posIn) { }
 
     uint64_t merID;
     bool isRC;
@@ -93,13 +93,14 @@ struct PosInfo {
 // maybe unify with the above?
 struct JumpCell {
     JumpCell(uint32_t merIdxIn, int32_t posIn, bool isRCIn) :
-        merIdx(merIdxIn), pos(posIn), isRC(isRCIn) {}
+            merIdx(merIdxIn), pos(posIn), isRC(isRCIn) { }
+
     uint32_t merIdx;
     int32_t pos;
     bool isRC;
 };
 
-template <typename T>
+template<typename T>
 void printVec(std::vector<T>& vec) {
     std::cerr << "{ ";
     for (auto& e : vec) {
@@ -141,20 +142,20 @@ void emptyJumpQueue(std::vector<JumpCell>& jumpQueue, int32_t lastBreak,
 
     // The maximum representable jump
     constexpr auto maxJump =
-        std::numeric_limits<std::remove_reference<decltype(fwdJump[0])>::type>::max();
+            std::numeric_limits<std::remove_reference<decltype(fwdJump[0])>::type>::max();
 
     while (!jumpQueue.empty()) {
         auto& jumpCell = jumpQueue.back();
         uint8_t revJumpDist = static_cast<uint8_t>(
                 std::min(jumpCell.pos - lastBreak + 1,
-                static_cast<int32_t>(maxJump)));
+                         static_cast<int32_t>(maxJump)));
         uint8_t fwdJumpDist = static_cast<uint8_t>(
                 std::min(pos - jumpCell.pos + 1,
-                static_cast<int32_t>(maxJump)));
+                         static_cast<int32_t>(maxJump)));
         fwdJump[jumpCell.merIdx] =
-            std::min(fwdJumpDist, fwdJump[jumpCell.merIdx]);
+                std::min(fwdJumpDist, fwdJump[jumpCell.merIdx]);
         revJump[jumpCell.merIdx] =
-            std::min(revJumpDist, revJump[jumpCell.merIdx]);
+                std::min(revJumpDist, revJump[jumpCell.merIdx]);
         // Now that we marked the jump, no need to keep this around.
         jumpQueue.pop_back();
     }
@@ -163,9 +164,10 @@ void emptyJumpQueue(std::vector<JumpCell>& jumpQueue, int32_t lastBreak,
 // To use the parser in the following, we get "jobs" until none is
 // available. A job behaves like a pointer to the type
 // jellyfish::sequence_list (see whole_sequence_parser.hpp).
-template <typename ParserT>//, typename CoverageCalculator>
+template<typename ParserT>
+//, typename CoverageCalculator>
 void processTranscripts(ParserT* parser,
-			std::string& outputDir,
+                        std::string& outputDir,
                         std::mutex& iomutex) {
     // Seed with a real random value, if available
     std::random_device rd;
@@ -189,7 +191,7 @@ void processTranscripts(ParserT* parser,
     using KmerBinT = uint64_t;
     //create the hash
     size_t hashSize = 100000000;
-    MerMapT merIntMap(hashSize, rapmap::utils::my_mer::k()*2, 32, 1, 126);
+    MerMapT merIntMap(hashSize, rapmap::utils::my_mer::k() * 2, 32, 1, 126);
     std::vector<rapmap::utils::KmerInfo> kmerInfos;
 
     std::vector<std::string> transcriptSeqs;
@@ -200,28 +202,28 @@ void processTranscripts(ParserT* parser,
 
     {
         ScopedTimer timer;
-        while(true) {
+        while (true) {
             typename ParserT::job j(*parser);
-            if(j.is_empty()) break;
+            if (j.is_empty()) break;
 
-            for(size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
+            for (size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
                 std::string& readStr = j->data[i].seq;
 
-		// Do Kallisto-esque clipping of polyA tails
-		if (readStr.size() > polyAClipLength and
-		    readStr.substr(readStr.length() - polyAClipLength) == polyA) {
+                // Do Kallisto-esque clipping of polyA tails
+                if (readStr.size() > polyAClipLength and
+                    readStr.substr(readStr.length() - polyAClipLength) == polyA) {
 
-		    auto newEndPos = readStr.find_last_not_of("Aa");
-		    // If it was all As
-		    if (newEndPos == std::string::npos) {
-			readStr.resize(0);
-		    } else {
-			readStr.resize(newEndPos + 1);
-		    }
-		    ++numPolyAsClipped;
-		}
+                    auto newEndPos = readStr.find_last_not_of("Aa");
+                    // If it was all As
+                    if (newEndPos == std::string::npos) {
+                        readStr.resize(0);
+                    } else {
+                        readStr.resize(newEndPos + 1);
+                    }
+                    ++numPolyAsClipped;
+                }
 
-                uint32_t readLen  = readStr.size();
+                uint32_t readLen = readStr.size();
                 uint32_t txpIndex = n++;
                 transcriptLengths.push_back(readLen);
                 auto& recHeader = j->data[i].header;
@@ -239,7 +241,7 @@ void processTranscripts(ParserT* parser,
                     mer.shift_left(c);
                     if (b >= k) {
                         auto canonicalMer = mer.get_canonical();
-                        auto key = canonicalMer.get_bits(0, 2*k);
+                        auto key = canonicalMer.get_bits(0, 2 * k);
 
                         uint64_t val;
                         auto found = merIntMap.ary()->get_val_for_key(canonicalMer, &val);
@@ -300,51 +302,48 @@ void processTranscripts(ParserT* parser,
     uint32_t offset{0};
     uint32_t transcriptID{0};
     {
-    ScopedTimer timer;
+        ScopedTimer timer;
+
+        for (auto& transcriptSeq : transcriptSeqs) {
+            auto readLen = transcriptSeq.length();
+            rapmap::utils::my_mer mer;
+            mer.polyT();
+            std::vector<KmerBinT> kmers;
+            for (size_t b = 0; b < readLen; ++b) {
+                int c = jellyfish::mer_dna::code(transcriptSeq[b]);
+                mer.shift_left(c);
+                if (b >= k) {
+                    auto canonicalMer = mer.get_canonical();
+                    uint64_t kmerIndex;
+                    auto found = merIntMap.ary()->get_val_for_key(canonicalMer, &kmerIndex);
+                    // Should ALWAYS find the key
+                    assert(found);
 
 
-    for (auto& transcriptSeq : transcriptSeqs) {
-        auto readLen = transcriptSeq.length();
-        rapmap::utils::my_mer mer;
-        mer.polyT();
-        std::vector<KmerBinT> kmers;
-        for (size_t b = 0; b < readLen; ++b) {
-            int c = jellyfish::mer_dna::code(transcriptSeq[b]);
-            mer.shift_left(c);
-            if (b >= k) {
-                auto canonicalMer = mer.get_canonical();
-                uint64_t kmerIndex;
-                auto found = merIntMap.ary()->get_val_for_key(canonicalMer, &kmerIndex);
-                // Should ALWAYS find the key
-                assert(found);
+                    auto& v = kmerInfos[kmerIndex];
+                    // use the highest bit to mark if we've seen this k-mer yet or not
+                    // If we haven't seen this k-mer yet
+                    if (!wasSeen(v.count)) {
+                        // Where we start looking for transcripts for this k-mer
+                        v.offset = offset;
+                        offset += v.count;
+                        // The number of transcripts we've currently added
+                        v.count = 0;
+                        markSeen(v.count);
+                    }
 
-
-                auto& v = kmerInfos[kmerIndex];
-                // use the highest bit to mark if we've seen this k-mer yet or not
-                // If we haven't seen this k-mer yet
-                if (!wasSeen(v.count)) {
-                   // Where we start looking for transcripts for this k-mer
-                   v.offset = offset;
-                   offset += v.count;
-                   // The number of transcripts we've currently added
-                   v.count = 0;
-                   markSeen(v.count);
+                    // Note: We allow duplicate transcripts here --- they will always be adjacent
+                    auto lastOffset = v.offset + unmarked(v.count);
+                    transcriptIDs[lastOffset] = transcriptID;
+                    v.count++;
                 }
-
-                // Note: We allow duplicate transcripts here --- they will always be adjacent
-                auto lastOffset = v.offset + unmarked(v.count);
-                transcriptIDs[lastOffset] = transcriptID;
-                v.count++;
             }
-
-
+            if (transcriptID % 10000 == 0) {
+                std::cerr << "\r\rmarked kmers for " << transcriptID << " transcripts";
+            }
+            ++transcriptID;
         }
-        if (transcriptID % 10000 == 0) {
-            std::cerr << "\r\rmarked kmers for " << transcriptID << " transcripts";
-        }
-        ++transcriptID;
-    }
-    	std::cerr << "\n";
+        std::cerr << "\n";
     }
 
     //printVec(transcriptIDs);
@@ -381,10 +380,10 @@ void processTranscripts(ParserT* parser,
                 auto tid = transcriptIDs[idx];
                 // We won't consider duplicate transcript IDs when building the
                 // equivalence classes
-		//
-		if (tlist.size() > 0 and tlist.back() > tid) {
-		    std::cerr << "Non monotnoically increasing transcript id!\n";
-		}
+                //
+                if (tlist.size() > 0 and tlist.back() > tid) {
+                    std::cerr << "Non monotnoically increasing transcript id!\n";
+                }
                 if (tlist.size() == 0 or tlist.back() != tid) {
                     tlist.push_back(tid);
                 }
@@ -409,7 +408,7 @@ void processTranscripts(ParserT* parser,
             val.eqId = eqId;
             val.count = 0;
         }
-    	std::cerr << "done! There were " << eqClassMap.size() << " classes\n";
+        std::cerr << "done! There were " << eqClassMap.size() << " classes\n";
     }
     // reuse the transcript IDs vector
     auto& posVec = transcriptIDs;
@@ -428,8 +427,8 @@ void processTranscripts(ParserT* parser,
     {
         ScopedTimer finalizeTimer;
         // Local vector to hold k-mers per transcript
-        btree::btree_map<rapmap::utils::my_mer,
-                         std::vector<PosInfo>> posHash;//std::vector<PosInfo> posInfos;
+        btree::btree_map<rapmap::utils::my_mer, std::vector<PosInfo>> posHash;
+        //std::vector<PosInfo> posInfos;
 
         // k-mers in the forward orientation w.r.t the reference txp
         std::vector<JumpCell> fwdJumpQueue;
@@ -437,9 +436,9 @@ void processTranscripts(ParserT* parser,
         std::vector<JumpCell> revJumpQueue;
 
         for (auto& transcriptSeq : transcriptSeqs) {
-	    // We can always jump to the beginning of a
-	    // new transcript
-	    lastBreak = 0;
+            // We can always jump to the beginning of a
+            // new transcript
+            lastBreak = 0;
 
             fwdJumpQueue.clear();
             revJumpQueue.clear();
@@ -458,7 +457,7 @@ void processTranscripts(ParserT* parser,
 
                     uint64_t kmerIndex;
                     auto found = merIntMap.ary()->get_val_for_key(
-                                            canonicalMer, &kmerIndex);
+                            canonicalMer, &kmerIndex);
 
                     auto& val = kmerInfos[kmerIndex];
                     currEqClass = val.eqId;
@@ -474,17 +473,17 @@ void processTranscripts(ParserT* parser,
                     // then this defines the new breakpoint.  At this time, we
                     // clear out the queues and mark the appropriate skips for
                     // each k-mer we encountered.
-                    if ( currEqClass != prevEqClass ) {
+                    if (currEqClass != prevEqClass) {
                         // For each k-mer in the forward direction, it can
                         // skip forward to this breakpoint, which is at
                         // position pos.
                         emptyJumpQueue(fwdJumpQueue, lastBreak, pos, merIntMap,
-                                fwdJump, revJump);
+                                       fwdJump, revJump);
                         // The only difference here is that we reverse the
                         // revJump and fwdJump arguments, since these are RC
                         // mers.
                         emptyJumpQueue(revJumpQueue, lastBreak, pos, merIntMap,
-                                revJump, fwdJump);
+                                       revJump, fwdJump);
                         lastBreak = pos;
                     }
                     // Does this k-mer exists in the table in the forward
@@ -513,31 +512,31 @@ void processTranscripts(ParserT* parser,
             // The last k-mer in the transcript is, by definition a breakpoint.
             // So, empty the queues.
             emptyJumpQueue(fwdJumpQueue, lastBreak, pos, merIntMap,
-                    fwdJump, revJump);
+                           fwdJump, revJump);
             // The only difference here is that we reverse the
             // revJump and fwdJump arguments, since these are RC
             // mers.
             emptyJumpQueue(revJumpQueue, lastBreak, pos, merIntMap,
-                    revJump, fwdJump);
+                           revJump, fwdJump);
             // === Jumping
 
             for (auto kv = posHash.begin(); kv != posHash.end(); ++kv) {
-                    auto mer = kv->first;
-                    auto& list = kv->second;
-                    // Should ALWAYS find the key
-                    assert(found);
-                    auto& val = kmerInfos[list.front().merID];
-                    uint32_t offset;
-                    markNewTxpBit(list.front().pos);
-                    for (auto& pi : list) {
-                        offset = val.offset + val.count;
-                        if (pi.isRC) {
-                            markRCBit(pi.pos);
-                        }
-                        transcriptIDs[offset] = pi.pos;
-                        ++val.count;
+                auto mer = kv->first;
+                auto& list = kv->second;
+                // Should ALWAYS find the key
+                assert(found);
+                auto& val = kmerInfos[list.front().merID];
+                uint32_t offset;
+                markNewTxpBit(list.front().pos);
+                for (auto& pi : list) {
+                    offset = val.offset + val.count;
+                    if (pi.isRC) {
+                        markRCBit(pi.pos);
                     }
+                    transcriptIDs[offset] = pi.pos;
+                    ++val.count;
                 }
+            }
             /*
             std::sort(posInfos.begin(), posInfos.end(),
                       [] (const PosInfo& a, const PosInfo& b) -> bool {
@@ -586,7 +585,7 @@ void processTranscripts(ParserT* parser,
             }
             ++transcriptID;
         }
-	std::cerr << "\n";
+        std::cerr << "\n";
     }
 
     /*
@@ -619,7 +618,7 @@ void processTranscripts(ParserT* parser,
     fh.update_from_ary(*merIntMap.ary());
     fh.canonical(true);
     fh.format("gus/special"); // Thanks, Guillaume
-    fh.counter_len(8*sizeof(uint32_t)); // size of counter in bits
+    fh.counter_len(8 * sizeof(uint32_t)); // size of counter in bits
     fh.fill_standard();
     //fh.set_cmdline(argc, argv);
 
@@ -659,54 +658,53 @@ void processTranscripts(ParserT* parser,
     }
     kinfoStream.close();
 
-  std::ofstream eqLabelStream(outputDir + "eqlab.bin", std::ios::binary);
-  {
-      cereal::BinaryOutputArchive eqLabelArchive(eqLabelStream);
-      eqLabelArchive(eqClassLabelVec);
-  }
-  eqLabelStream.close();
+    std::ofstream eqLabelStream(outputDir + "eqlab.bin", std::ios::binary);
+    {
+        cereal::BinaryOutputArchive eqLabelArchive(eqLabelStream);
+        eqLabelArchive(eqClassLabelVec);
+    }
+    eqLabelStream.close();
 
-  std::ofstream eqClassStream(outputDir + "eqclass.bin", std::ios::binary);
-  {
-      cereal::BinaryOutputArchive eqClassArchive(eqClassStream);
-      eqClassArchive(eqClasses);
-  }
-  eqClassStream.close();
+    std::ofstream eqClassStream(outputDir + "eqclass.bin", std::ios::binary);
+    {
+        cereal::BinaryOutputArchive eqClassArchive(eqClassStream);
+        eqClassArchive(eqClasses);
+    }
+    eqClassStream.close();
 
-  std::ofstream posStream(outputDir + "pos.bin", std::ios::binary);
-  {
-      cereal::BinaryOutputArchive posArchive(posStream);
-      posArchive(transcriptIDs);
-  }
-  posStream.close();
-  std::ofstream txpStream(outputDir + "txpnames.bin", std::ios::binary);
-  {
-    cereal::BinaryOutputArchive txpArchive(txpStream);
-    txpArchive(transcriptNames);
-  }
-  txpStream.close();
+    std::ofstream posStream(outputDir + "pos.bin", std::ios::binary);
+    {
+        cereal::BinaryOutputArchive posArchive(posStream);
+        posArchive(transcriptIDs);
+    }
+    posStream.close();
+    std::ofstream txpStream(outputDir + "txpnames.bin", std::ios::binary);
+    {
+        cereal::BinaryOutputArchive txpArchive(txpStream);
+        txpArchive(transcriptNames);
+    }
+    txpStream.close();
 
-  std::string indexVersion = "p0";
-  IndexHeader header(IndexType::PSEUDO, indexVersion, true, k);
-  // Finally (since everything presumably succeeded) write the header
-  std::ofstream headerStream(outputDir + "header.json");
-  {
-    cereal::JSONOutputArchive archive(headerStream);
-    archive(header);
-  }
-  headerStream.close();
+    std::string indexVersion = "p0";
+    IndexHeader header(IndexType::PSEUDO, indexVersion, true, k);
+    // Finally (since everything presumably succeeded) write the header
+    std::ofstream headerStream(outputDir + "header.json");
+    {
+        cereal::JSONOutputArchive archive(headerStream);
+        archive(header);
+    }
+    headerStream.close();
 
 
-  std::cerr << "transcriptIDs.size() = " << transcriptIDs.size() << "\n";
-  std::cerr << "parsed " << transcriptNames.size() << " transcripts\n";
-  std::cerr << "There were " << numDistinctKmers << " distinct k-mers (canonicalized)\n";
+    std::cerr << "transcriptIDs.size() = " << transcriptIDs.size() << "\n";
+    std::cerr << "parsed " << transcriptNames.size() << " transcripts\n";
+    std::cerr << "There were " << numDistinctKmers << " distinct k-mers (canonicalized)\n";
 
-  // Data structure idea:
-  // k-mer => equivalence class, position array offset
-  // equivalence class = ordered (unique) list of transcripts
-  // position array = *self-delimited* list of positions with the same order as txps in the equivalence class
+    // Data structure idea:
+    // k-mer => equivalence class, position array offset
+    // equivalence class = ordered (unique) list of transcripts
+    // position array = *self-delimited* list of positions with the same order as txps in the equivalence class
 }
-
 
 
 int rapMapIndex(int argc, char* argv[]) {
@@ -714,8 +712,10 @@ int rapMapIndex(int argc, char* argv[]) {
 
     TCLAP::CmdLine cmd("RapMap Indexer");
     TCLAP::ValueArg<std::string> transcripts("t", "transcripts", "The transcript file to be indexed", true, "", "path");
-    TCLAP::ValueArg<std::string> index("i", "index", "The location where the index should be written", true, "", "path");
-    TCLAP::ValueArg<uint32_t> kval("k", "klen", "The length of k-mer to index", false, 31, "positive integer less than 32");
+    TCLAP::ValueArg<std::string> index("i", "index", "The location where the index should be written", true, "",
+                                       "path");
+    TCLAP::ValueArg<uint32_t> kval("k", "klen", "The length of k-mer to index", false, 31,
+                                   "positive integer less than 32");
     cmd.add(transcripts);
     cmd.add(index);
     cmd.add(kval);
@@ -724,7 +724,7 @@ int rapMapIndex(int argc, char* argv[]) {
 
     // stupid parsing for now
     std::string transcriptFile(transcripts.getValue());
-    std::vector<std::string> transcriptFiles({ transcriptFile });
+    std::vector<std::string> transcriptFiles({transcriptFile});
 
     uint32_t k = kval.getValue();
     if (k % 2 == 0) {
@@ -738,7 +738,7 @@ int rapMapIndex(int argc, char* argv[]) {
 
     std::string indexDir = index.getValue();
     if (indexDir.back() != '/') {
-	indexDir += '/';
+        indexDir += '/';
     }
     bool dirExists = rapmap::fs::DirExists(indexDir.c_str());
     bool dirIsFile = rapmap::fs::FileExists(indexDir.c_str());
@@ -756,7 +756,7 @@ int rapMapIndex(int argc, char* argv[]) {
     stream_manager streams(transcriptFiles.begin(), transcriptFiles.end(), concurrentFile);
     std::unique_ptr<single_parser> transcriptParserPtr{nullptr};
     transcriptParserPtr.reset(new single_parser(4 * numThreads, maxReadGroup,
-                              concurrentFile, streams));
+                                                concurrentFile, streams));
     std::mutex iomutex;
     processTranscripts(transcriptParserPtr.get(), indexDir, iomutex);
     return 0;

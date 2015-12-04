@@ -27,9 +27,9 @@ namespace rapmap {
         using ProcessedSAHit = rapmap::utils::ProcessedSAHit;
 
         class SAProcessedHitVec {
-            public:
-                std::vector<ProcessedSAHit> hits;
-                std::vector<uint32_t> txps;
+        public:
+            std::vector<ProcessedSAHit> hits;
+            std::vector<uint32_t> txps;
         };
         /*
         using SAProcessedHitVec = std::tuple<std::vector<ProcessedSAHit>, std::vector<uint32_t>>;
@@ -38,26 +38,26 @@ namespace rapmap {
         // Return hits from processedHits where position constraints
         // match maxDist
         bool collectHitsSimple(std::vector<ProcessedHit>& processedHits,
-                uint32_t readLen,
-                uint32_t maxDist,
-                std::vector<QuasiAlignment>& hits,
-                MateStatus mateStatus);
+                               uint32_t readLen,
+                               uint32_t maxDist,
+                               std::vector<QuasiAlignment>& hits,
+                               MateStatus mateStatus);
 
         // Return hits from processedHits where position constraints
         // match maxDist
         bool collectHitsSimpleSA(SAHitMap& processedHits,
-                uint32_t readLen,
-                uint32_t maxDist,
-                std::vector<QuasiAlignment>& hits,
-                MateStatus mateStatus);
+                                 uint32_t readLen,
+                                 uint32_t maxDist,
+                                 std::vector<QuasiAlignment>& hits,
+                                 MateStatus mateStatus);
 
         // Return hits from processedHits where position constraints
         // match maxDist
         bool collectHitsSimpleSA2(std::vector<ProcessedSAHit>& processedHits,
-                uint32_t readLen,
-                uint32_t maxDist,
-                std::vector<QuasiAlignment>& hits,
-                MateStatus mateStatus);
+                                  uint32_t readLen,
+                                  uint32_t maxDist,
+                                  std::vector<QuasiAlignment>& hits,
+                                  MateStatus mateStatus);
 
 
         // Intersects the hit h2 with outHits.
@@ -66,16 +66,16 @@ namespace rapmap {
         // which h2 appears will have an iterator to the beginning of
         // the position list for h2.
         void intersectWithOutput(HitInfo& h2, RapMapIndex& rmi,
-                std::vector<ProcessedHit>& outHits);
+                                 std::vector<ProcessedHit>& outHits);
 
         void intersectSAIntervalWithOutput(SAIntervalHit& h,
-                RapMapSAIndex& rmi,
-		uint32_t intervalCounter,
-                SAHitMap& outHits);
+                                           RapMapSAIndex& rmi,
+                                           uint32_t intervalCounter,
+                                           SAHitMap& outHits);
 
         void intersectSAIntervalWithOutput2(SAIntervalHit& h,
-                RapMapSAIndex& rmi,
-                SAProcessedHitVec& outStructs);
+                                            RapMapSAIndex& rmi,
+                                            SAProcessedHitVec& outStructs);
 
         /*
         void intersectSAIntervalWithOutput3(SAIntervalHit& h,
