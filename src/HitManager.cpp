@@ -67,7 +67,7 @@ namespace rapmap {
                     // rc directions here (I think).
                     int32_t hitPos = minPosIt->pos - minPosIt->queryPos;
                     bool isFwd = !hitRC;
-                    hits.emplace_back(tid, hitPos, isFwd, readLen);
+                    hits.emplace_back(tid, hitPos, isFwd, readLen, minPosIt->len, minPosIt->queryPos);
                     hits.back().mateStatus = mateStatus;
                 }
             }
@@ -98,7 +98,7 @@ namespace rapmap {
                     bool hitRC = minPosIt->queryRC;
                     int32_t hitPos = minPosIt->pos - minPosIt->queryPos;
                     bool isFwd = !hitRC;
-                    hits.emplace_back(tid, hitPos, isFwd, readLen);
+                    hits.emplace_back(tid, hitPos, isFwd, readLen, minPosIt->len, minPosIt->queryPos);
                     hits.back().mateStatus = mateStatus;
                 }
             }
@@ -275,7 +275,7 @@ namespace rapmap {
                 if (searchInd < arraySize - 1) {
                     //auto offset = std::distance(txpIt, searchIt);
                     pos = static_cast<uint32_t>(SA[i]) - txpStarts[rightTxp];
-                    outStructs[searchInd].tqvec.emplace_back(pos, h.queryPos, h.queryRC);
+                    outStructs[searchInd].tqvec.emplace_back(pos, h.len, h.queryPos, h.queryRC);
                 }
                 /*
                 auto searchIdx = outTxps.search(rightTxp);
@@ -368,7 +368,7 @@ namespace rapmap {
                     if (txpListIt->second.numActive == intervalCounter) {
                         auto globalPos = SA[i];
                         auto localPos = globalPos - txpStarts[txpID];
-                        txpListIt->second.tqvec.emplace_back(localPos, h.queryPos, h.queryRC);
+                        txpListIt->second.tqvec.emplace_back(localPos, h.len, h.queryPos, h.queryRC);
                     }
                 }
             }
@@ -377,8 +377,7 @@ namespace rapmap {
 
         std::vector<ProcessedHit> intersectHits(
                 std::vector<HitInfo>& inHits,
-                RapMapIndex& rmi
-        ) {
+                RapMapIndex& rmi) {
             // Each inHit is a HitInfo structure that contains
             // an iterator to the KmerInfo for this k-mer, the k-mer ID,
             // and the query position where this k-mer appeared.
@@ -483,15 +482,14 @@ namespace rapmap {
 
         std::vector<ProcessedSAHit> intersectSAHits2(
                 std::vector<SAIntervalHit>& inHits,
-                RapMapSAIndex& rmi
-        ) {
+                RapMapSAIndex& rmi) {
 
             // Each inHit is a SAIntervalHit structure that contains
-            // an SA interval with all hits for a particuar query location
+            // an SA interval with all hits for a particular query location
             // on the read.
             //
             // We want to find the transcripts that appear in *every*
-            // interavl.  Further, for each transcript, we want to
+            // interval.  Further, for each transcript, we want to
             // know the positions within this txp.
 
             // Check this --- we should never call this function
@@ -530,9 +528,9 @@ namespace rapmap {
                 auto posIt = posMap.find(tid);
                 if (posIt == posMap.end()) {
                     posMap[tid] = outStructs.size();
-                    outStructs.emplace_back(tid, txpPos, minHit->queryPos, minHit->queryRC);
+                    outStructs.emplace_back(tid, txpPos, minHit->len, minHit->queryPos, minHit->queryRC);
                 } else {
-                    outStructs[posIt->second].tqvec.emplace_back(txpPos, minHit->queryPos, minHit->queryRC);
+                    outStructs[posIt->second].tqvec.emplace_back(txpPos, minHit->len, minHit->queryPos, minHit->queryRC);
                 }
             }
             std::sort(outStructs.begin(), outStructs.end(),
@@ -573,15 +571,14 @@ namespace rapmap {
 
         SAHitMap intersectSAHits(
                 std::vector<SAIntervalHit>& inHits,
-                RapMapSAIndex& rmi
-        ) {
+                RapMapSAIndex& rmi) {
 
             // Each inHit is a SAIntervalHit structure that contains
-            // an SA interval with all hits for a particuar query location
+            // an SA interval with all hits for a particular query location
             // on the read.
             //
             // We want to find the transcripts that appear in *every*
-            // interavl.  Further, for each transcript, we want to
+            // interval.  Further, for each transcript, we want to
             // know the positions within this txp.
 
             // Check this --- we should never call this function
@@ -615,7 +612,7 @@ namespace rapmap {
                     //auto tid = txpIDs[globalPos];
                     auto tid = rmi.transcriptAtPosition(globalPos);
                     auto txpPos = globalPos - txpStarts[tid];
-                    outHits[tid].tqvec.emplace_back(txpPos, minHit->queryPos, minHit->queryRC);
+                    outHits[tid].tqvec.emplace_back(txpPos, minHit->len, minHit->queryPos, minHit->queryRC);
                 }
             }
             // =========

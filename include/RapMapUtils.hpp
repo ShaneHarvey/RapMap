@@ -130,6 +130,7 @@ namespace rapmap {
             std::atomic<uint64_t> numReads{0};
             std::atomic<uint64_t> tooManyHits{0};
             std::atomic<uint64_t> lastPrint{0};
+            std::atomic<uint64_t> totMatchLens{0};
         };
 
         class JFMerKeyHasher {
@@ -246,6 +247,8 @@ namespace rapmap {
             QuasiAlignment() :
                     tid(std::numeric_limits<uint32_t>::max()),
                     pos(std::numeric_limits<uint32_t>::max()),
+                    matchLen(0),
+                    queryPos(0),
                     fwd(true),
                     readLen(std::numeric_limits<uint32_t>::max()),
                     fragLen(std::numeric_limits<uint32_t>::max()),
@@ -257,9 +260,11 @@ namespace rapmap {
 
             QuasiAlignment(uint32_t tidIn, uint32_t posIn,
                            bool fwdIn, uint32_t readLenIn,
+                           uint32_t matchLenIn = 9999, uint32_t queryPosIn = 9999,
                            uint32_t fragLenIn = 0,
                            bool isPairedIn = false) :
-                    tid(tidIn), pos(posIn), fwd(fwdIn),
+                    tid(tidIn), pos(posIn), matchLen(matchLenIn),
+                    queryPos(queryPosIn), fwd(fwdIn),
                     readLen(readLenIn), fragLen(fragLenIn),
                     isPaired(isPairedIn)
 #ifdef RAPMAP_SALMON_SUPPORT
@@ -296,6 +301,10 @@ namespace rapmap {
             int32_t pos;
             // left-most position of the mate
             int32_t matePos;
+            // length of the MMP of the hit
+            uint32_t matchLen;
+            // index of the hit in the query
+            uint32_t queryPos;
             // Is the read from the forward strand
             bool fwd;
             // Is the mate from the forward strand
@@ -336,19 +345,19 @@ namespace rapmap {
         };
 
         struct SATxpQueryPos {
-            SATxpQueryPos(uint32_t posIn, uint32_t qposIn, bool queryRCIn, bool activeIn = false) :
-                    pos(posIn), queryPos(qposIn), queryRC(queryRCIn), active(activeIn) { }
+            SATxpQueryPos(uint32_t posIn, uint32_t lenIn, uint32_t qposIn, bool queryRCIn, bool activeIn = false) :
+                    pos(posIn), len(lenIn), queryPos(qposIn), queryRC(queryRCIn), active(activeIn) { }
 
-            uint32_t pos, queryPos;
+            uint32_t pos, len, queryPos;
             bool queryRC, active;
         };
 
         struct ProcessedSAHit {
             ProcessedSAHit() : tid(std::numeric_limits<uint32_t>::max()), active(false), numActive(1) { }
 
-            ProcessedSAHit(uint32_t txpIDIn, uint32_t txpPosIn, uint32_t queryPosIn, bool queryRCIn) :
+            ProcessedSAHit(uint32_t txpIDIn, uint32_t txpPosIn, uint32_t lenIn, uint32_t queryPosIn, bool queryRCIn) :
                     tid(txpIDIn), active(false), numActive(1) {
-                tqvec.emplace_back(txpPosIn, queryPosIn, queryRCIn);
+                tqvec.emplace_back(txpPosIn, lenIn,  queryPosIn, queryRCIn);
             }
 
             uint32_t tid;

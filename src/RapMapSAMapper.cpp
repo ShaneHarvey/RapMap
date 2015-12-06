@@ -134,6 +134,9 @@ void processReadsSingleSA(single_parser* parser,
             auto numHits = hits.size();
             hctr.totHits += numHits;
 
+            for (auto& h : hits) {
+                hctr.totMatchLens += h.matchLen;
+            }
             if (hits.size() > 0 and !noOutput and hits.size() <= maxNumHits) {
                 /*
                 std::sort(hits.begin(), hits.end(),
@@ -150,14 +153,16 @@ void processReadsSingleSA(single_parser* parser,
                 if (iomutex->try_lock()) {
                     if (hctr.numReads > 0) {
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
-                        std::cerr << "\033[F\033[F\033[F";
+                        std::cerr << "\033[F\033[F\033[F033[F";
 #else
-                        std::cerr << "\033[F\033[F";
+                        std::cerr << "\033[F\033[F\033[F";
 #endif // __DEBUG__
                     }
                     std::cerr << "saw " << hctr.numReads << " reads\n";
                     std::cerr << "# hits per read = "
                               << hctr.totHits / static_cast<float>(hctr.numReads) << "\n";
+                    std::cerr << "# matches per hit = "
+                              << hctr.totMatchLens / static_cast<float>(hctr.totHits) << "\n";
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
                     std::cerr << "The true hit was in the returned set of hits "
                               << 100.0 * (hctr.trueHits / static_cast<float>(hctr.numReads))
@@ -184,10 +189,7 @@ void processReadsSingleSA(single_parser* parser,
              sstream.clear();
              */
         }
-
     } // processed all reads
-
-
 }
 
 /**
@@ -291,9 +293,7 @@ void processReadsPairSA(paired_parser* parser,
             sstream.clear();
             */
         }
-
     } // processed all reads
-
 }
 
 int rapMapSAMap(int argc, char* argv[]) {
@@ -425,7 +425,7 @@ int rapMapSAMap(int argc, char* argv[]) {
         {
             ScopedTimer timer;
             HitCounters hctrs;
-            consoleLog->info("mapping reads . . . \n\n\n");
+            consoleLog->info("mapping reads . . . \n\n\n\n");
             if (pairedEnd) {
                 std::vector<std::thread> threads;
                 std::vector<std::string> read1Vec = rapmap::utils::tokenize(read1.getValue(), ',');
@@ -495,17 +495,16 @@ int rapMapSAMap(int argc, char* argv[]) {
             }
             std::cerr << "\n\n";
 
-
             consoleLog->info("Done mapping reads.");
             consoleLog->info("In total saw {} reads.", hctrs.numReads);
             consoleLog->info("Final # hits per read = {}", hctrs.totHits / static_cast<float>(hctrs.numReads));
+            consoleLog->info("Final # matches per hit = {}", hctrs.totMatchLens / static_cast<float>(hctrs.totHits));
             consoleLog->info("flushing output queue.");
             outLog->flush();
             /*
                 consoleLog->info("Discarded {} reads because they had > {} alignments",
                     hctrs.tooManyHits, maxNumHits.getValue());
                     */
-
         }
 
         if (haveOutputFile) {

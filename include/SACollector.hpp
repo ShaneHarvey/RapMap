@@ -505,7 +505,7 @@ public:
                 auto txpID = rmi_->transcriptAtPosition(globalPos);
                 // the offset into this transcript
                 auto pos = globalPos - txpStarts[txpID];
-                hits.emplace_back(txpID, pos, true, readLen);
+                hits.emplace_back(txpID, pos, true, readLen, saIntervalHit.len, saIntervalHit.queryPos);
                 hits.back().mateStatus = mateStatus;
             }
             // Now sort by transcript ID (then position) and eliminate
@@ -541,7 +541,7 @@ public:
                 auto txpID = rmi_->transcriptAtPosition(globalPos);
                 // the offset into this transcript
                 auto pos = globalPos - txpStarts[txpID];
-                hits.emplace_back(txpID, pos, false, readLen);
+                hits.emplace_back(txpID, pos, false, readLen, saIntervalHit.len, saIntervalHit.queryPos);
                 hits.back().mateStatus = mateStatus;
             }
             // Now sort by transcript ID (then position) and eliminate
