@@ -613,7 +613,7 @@ namespace rapmap {
                         if (leftTxp < rightTxp) {
                             ++leftIt;
                         } else {
-                            if (!(rightTxp < leftTxp)) {
+                            if (leftTxp == rightTxp) {
                                 int32_t startRead1 = leftIt->pos;
                                 int32_t startRead2 = rightIt->pos;
                                 int32_t fragStartPos = std::min(leftIt->pos, rightIt->pos);
@@ -623,6 +623,8 @@ namespace rapmap {
                                                        startRead1,
                                                        leftIt->fwd,
                                                        leftIt->readLen,
+                                                       leftIt->matchLen,
+                                                       leftIt->queryPos,
                                                        fragLen, true);
                                 // Fill in the mate info
                                 auto& qaln = jointHits.back();
