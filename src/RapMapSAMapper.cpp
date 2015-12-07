@@ -464,6 +464,7 @@ int rapMapSAMap(int argc, char* argv[]) {
                 }
 
                 for (auto& t : threads) { t.join(); }
+                hctrs.totHits += hctrs.peHits + hctrs.seHits;
                 delete[] pairFileList;
             } else {
                 std::vector<std::thread> threads;
