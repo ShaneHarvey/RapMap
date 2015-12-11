@@ -14,6 +14,8 @@ set (RAPMAP_MAIN_SRCS
     #bitmap.cpp
     stringpiece.cc
     sais.c
+    ssw.c
+    ssw_cpp.cpp
     xxhash.c
     bit_array.c
 )

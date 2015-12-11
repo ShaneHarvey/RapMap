@@ -41,6 +41,9 @@
 
 #include "tclap/CmdLine.h"
 
+// Smith-Waterman
+#include "ssw_cpp.h"
+
 /*extern "C" {
 #include "kseq.h"
 }
@@ -90,6 +93,75 @@ using ProcessedHit = rapmap::utils::ProcessedHit;
 using QuasiAlignment = rapmap::utils::QuasiAlignment;
 using FixedWriter = rapmap::utils::FixedWriter;
 
+// Align this single end read to all the hit positions
+void align_single(RapMapSAIndex& rmi,
+                  std::string& read,
+                  std::vector<rapmap::utils::QuasiAlignment>& hits) {
+    // Declares an Aligner
+    StripedSmithWaterman::Aligner aligner(1, 3, 3, 1);
+    // Declares a default filter
+    StripedSmithWaterman::Filter filter;
+    // Declares an alignment that stores the result
+    StripedSmithWaterman::Alignment alignment;
+
+    int64_t readLen = read.length();
+    for (auto& qa : hits) {
+        std::string& cigar = qa.cigar;
+        cigar.clear();
+        // Get copy of transcript
+        int64_t matchStart = qa.queryPos;
+        int64_t txpLen = rmi.txpLens[qa.tid];
+        int64_t txpStart = rmi.txpOffsets[qa.tid];
+        int64_t txpEnd = txpStart + txpLen;
+        int64_t txpHitStart = txpStart + qa.pos;
+        int64_t txpHitEnd = txpHitStart + readLen;
+        int64_t txpMatchStart = txpHitStart + matchStart;
+        int64_t txpMatchEnd = txpMatchStart + qa.matchLen;
+        // Heuristic allow at most alignment length gaps
+        int64_t txpAlignStart = std::max(txpHitStart - 2 * matchStart, txpStart);
+        int64_t txpAlignLen = txpMatchStart - txpAlignStart;
+        int64_t beforeClip = -qa.pos;
+        // if need clip before read:
+        if (beforeClip > 0) {
+            cigar = std::to_string(beforeClip) + "S";
+        }
+        // if need align before the match:
+        if (txpAlignLen > 0) {
+            // Align up to the start of the match in the read
+            auto readAlignStart = std::max(beforeClip, 0L);
+            auto readAlignLen = matchStart - readAlignStart;
+            auto txpString = rmi.seq.substr(txpAlignStart, txpAlignLen);
+            auto readString = read.substr(readAlignStart, readAlignLen);
+            // Align with *free begin gaps* in the transcript
+            aligner.Align(readString.c_str(), txpString.c_str(), txpAlignLen, filter, &alignment);
+            cigar += alignment.cigar_string;
+        }
+        // Add match alignment
+        cigar += std::to_string(qa.matchLen) + "=";
+        // Heuristic allow at most alignment length gaps
+        auto txpAfterAlignStart = txpMatchEnd;
+        auto readAfterMatch = txpHitEnd - txpMatchEnd;
+        auto txpAfterAlignEnd = std::min(txpHitEnd + 2 * readAfterMatch, txpEnd);
+        auto txpAfterAlignLen = txpAfterAlignEnd - txpAfterAlignStart;
+        // if need align after the match:
+        if (txpAfterAlignLen > 0) {
+            // Alignment after the match to the end of the read (the right end is fixed)
+            auto readAlignStart = matchStart + qa.matchLen;
+            auto readAlignLen = std::min(readLen - readAlignStart, txpAfterAlignLen);
+            auto txpString = rmi.seq.substr(txpAfterAlignStart, txpAfterAlignLen);
+            auto readString = read.substr(readAlignStart, readAlignLen);
+            // Align with *free end gaps* in the transcript
+            aligner.Align(readString.c_str(), txpString.c_str(), txpAlignLen, filter, &alignment);
+            cigar += alignment.cigar_string;
+        }
+        auto afterClip = txpHitEnd - txpEnd;
+        // if need clip after read:
+        if (afterClip > 0) {
+            cigar += std::to_string(afterClip) + "S";
+        }
+        std::cerr << cigar << std::endl;
+    }
+}
 
 template<typename CollectorT, typename MutexT>
 void processReadsSingleSA(single_parser* parser,
@@ -137,15 +209,13 @@ void processReadsSingleSA(single_parser* parser,
             for (auto& h : hits) {
                 hctr.totMatchLens += h.matchLen;
             }
-            if (hits.size() > 0 and !noOutput and hits.size() <= maxNumHits) {
-                /*
-                std::sort(hits.begin(), hits.end(),
-                            [](const QuasiAlignment& a, const QuasiAlignment& b) -> bool {
-                                return a.tid < b.tid;
-                            });
-                */
-                rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
-                                                       hctr, hits, sstream);
+            // Calculate optimal alignment at each hit position
+            if (hits.size() > 0 and hits.size() <= maxNumHits) {
+                align_single(rmi, j->data[i].seq, hits);
+                if (!noOutput) {
+                    rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
+                                                           hctr, hits, sstream);
+                }
             }
 
             if (hctr.numReads > hctr.lastPrint + 1000000) {
@@ -253,6 +323,9 @@ void processReadsPairSA(paired_parser* parser,
                     leftHits, rightHits, jointHits,
                     readLen, maxNumHits, tooManyHits, hctr);
 
+            for (auto& h : jointHits) {
+                hctr.totMatchLens += h.matchLen;
+            }
             // If we have reads to output, and we're writing output.
             if (jointHits.size() > 0 and !noOutput and jointHits.size() <= maxNumHits) {
                 rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
@@ -267,7 +340,9 @@ void processReadsPairSA(paired_parser* parser,
                     }
                     std::cerr << "saw " << hctr.numReads << " reads : "
                               << "pe / read = " << hctr.peHits / static_cast<float>(hctr.numReads)
-                              << " : se / read = " << hctr.seHits / static_cast<float>(hctr.numReads) << ' ';
+                              << " : se / read = " << hctr.seHits / static_cast<float>(hctr.numReads)
+                              << " : matches / hit = "
+                              << hctr.totMatchLens / static_cast<float>(hctr.peHits + hctr.seHits) << " ";
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
                     std::cerr << ": true hit \% = "
                         << (100.0 * (hctr.trueHits / static_cast<float>(hctr.numReads)));

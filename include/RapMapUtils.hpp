@@ -319,6 +319,9 @@ namespace rapmap {
             // Is this a paired *alignment* or not
             bool isPaired;
             MateStatus mateStatus;
+            // cigar strings
+            std::string cigar;
+            std::string cigar2;
         };
 
         struct HitInfo {
@@ -443,6 +446,42 @@ namespace rapmap {
             }
         }
 
+        // alignment
+        inline void align_hit(QuasiAlignment& qa, uint32_t txpLen,
+                              FixedWriter& cigarStr) {
+            // QA has at least k matched bases
+            auto match_end = qa.queryPos + qa.matchLen;
+            if (qa.queryPos > 0) {
+                // align before match
+            }
+            // alignment here is "{qa.matchLen}M"
+            if (match_end < qa.readLen) {
+                // align after match
+            }
+
+
+            auto& pos = qa.pos;
+            auto readLen = qa.readLen;
+            cigarStr.clear();
+            if (pos + readLen < 0) {
+                cigarStr.write("{}S", readLen);
+                pos = 0;
+            } else if (pos < 0) {
+                int32_t matchLen = readLen + pos;
+                int32_t clipLen = -pos;
+                cigarStr.write("{}S{}M", clipLen, matchLen);
+                // Now adjust the mapping position
+                pos = 0;
+            } else if (pos > txpLen) {
+                cigarStr.write("{}S", readLen);
+            } else if (pos + readLen > txpLen) {
+                int32_t matchLen = txpLen - pos;
+                int32_t clipLen = readLen - matchLen;
+                cigarStr.write("{}M{}S", matchLen, clipLen);
+            } else {
+                cigarStr.write("{}M", readLen);
+            }
+        }
 
         // Declarations for functions dealing with SAM formatting and output
         //
