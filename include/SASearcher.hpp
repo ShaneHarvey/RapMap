@@ -12,7 +12,7 @@
 class SASearcher {
 public:
     SASearcher(RapMapSAIndex* rmi) :
-            rmi_(rmi), seq_(&rmi->seq), sa_(&rmi->SA) { }
+            rmi_(rmi), seq_(&rmi->seq), sa_(&rmi->SA), textLen_(rmi->seq.length()) { }
 
     int cmp(std::string::iterator abeg,
             std::string::iterator aend,
