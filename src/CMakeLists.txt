@@ -14,8 +14,6 @@ set (RAPMAP_MAIN_SRCS
     #bitmap.cpp
     stringpiece.cc
     sais.c
-    ssw.c
-    ssw_cpp.cpp
     xxhash.c
     bit_array.c
 )
@@ -87,6 +85,7 @@ target_link_libraries(rapmap
     #${LIBSALMON_LINKER_FLAGS}
     ${NON_APPLECLANG_LIBS}
     ${FAST_MALLOC_LIB}
+    ${SEQAN_LIBRARIES}
 )
 
 #add_dependencies(salmon libbwa)

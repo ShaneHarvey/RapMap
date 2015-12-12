@@ -41,8 +41,12 @@
 
 #include "tclap/CmdLine.h"
 
-// Smith-Waterman
-#include "ssw_cpp.h"
+// SeqAn
+#include <seqan/basic.h>
+#include <seqan/sequence.h>
+#include <seqan/stream.h>  // for I/O
+#include <seqan/align.h>
+#include <seqan/score.h>
 
 /*extern "C" {
 #include "kseq.h"
@@ -97,13 +101,6 @@ using FixedWriter = rapmap::utils::FixedWriter;
 void align_single(RapMapSAIndex& rmi,
                   std::string& read,
                   std::vector<rapmap::utils::QuasiAlignment>& hits) {
-    // Declares an Aligner
-    StripedSmithWaterman::Aligner aligner(1, 3, 3, 1);
-    // Declares a default filter
-    StripedSmithWaterman::Filter filter;
-    // Declares an alignment that stores the result
-    StripedSmithWaterman::Alignment alignment;
-
     int64_t readLen = read.length();
     for (auto& qa : hits) {
         std::string& cigar = qa.cigar;
@@ -133,8 +130,7 @@ void align_single(RapMapSAIndex& rmi,
             auto txpString = rmi.seq.substr(txpAlignStart, txpAlignLen);
             auto readString = read.substr(readAlignStart, readAlignLen);
             // Align with *free begin gaps* in the transcript
-            aligner.Align(readString.c_str(), txpString.c_str(), txpAlignLen, filter, &alignment);
-            cigar += alignment.cigar_string;
+            cigar += std::to_string(txpAlignLen) + "M";
         }
         // Add match alignment
         cigar += std::to_string(qa.matchLen) + "=";
@@ -151,8 +147,7 @@ void align_single(RapMapSAIndex& rmi,
             auto txpString = rmi.seq.substr(txpAfterAlignStart, txpAfterAlignLen);
             auto readString = read.substr(readAlignStart, readAlignLen);
             // Align with *free end gaps* in the transcript
-            aligner.Align(readString.c_str(), txpString.c_str(), txpAlignLen, filter, &alignment);
-            cigar += alignment.cigar_string;
+            cigar += std::to_string(txpAlignLen) + "M";
         }
         auto afterClip = txpHitEnd - txpEnd;
         // if need clip after read:

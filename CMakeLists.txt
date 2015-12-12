@@ -255,6 +255,32 @@ if (NOT HAVE_FAST_MALLOC)
     set (HAVE_FAST_MALLOC TRUE)
 endif ()
 
+set (SEQAN_FIND_DEPENDENCIES ZLIB)
+find_package(SeqAn)
+
+if (NOT SEQAN_FOUND)
+    message("Build system will fetch and build SeqAn")
+    message("==================================================================")
+    ExternalProject_Add(libseqan
+            DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
+            DOWNLOAD_COMMAND curl -k -L https://github.com/seqan/seqan/releases/download/seqan-v2.0.1/seqan-library-2.0.1.tar.bz2 -o seqan-library-2.0.1.tar.bz2 &&
+                rm -fr seqan-library-2.0.1 &&
+                tar -xjf seqan-library-2.0.1.tar.bz2
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ""
+            )
+    set(SEQAN_FOUND        TRUE)
+    set(SEQAN_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/external/seqan-library-2.0.1/include")
+endif()
+include_directories(${SEQAN_INCLUDE_DIRS})
+
+# Add definitions set by find_package (SeqAn).
+add_definitions (${SEQAN_DEFINITIONS})
+
+# Add CXX flags found by find_package (SeqAn).
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
+
 ###
 #
 # Done building external dependencies.
