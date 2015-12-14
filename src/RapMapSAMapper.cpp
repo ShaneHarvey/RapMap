@@ -48,6 +48,7 @@
 #include <seqan/align.h>
 #include <seqan/bam_io/cigar.h>
 #include <seqan/score.h>
+#include <RapMapAligner.hpp>
 
 /*extern "C" {
 #include "kseq.h"
@@ -433,8 +434,10 @@ void processReadsPairSA(paired_parser* parser,
 }
 
 void seqan_align(void) {
-    TSequence seq1 = "TTTTTA";
-    TSequence seq2 = "TT";
+    std::string sseq1 = "AAAACCCCCTTTT";
+    std::string sseq2 = "TTT";
+    TSequence seq1 = sseq1;
+    TSequence seq2 = sseq2;
 
     TDepStringSet sequences;
     appendValue(sequences, seq1);
@@ -443,7 +446,7 @@ void seqan_align(void) {
 
     TAlignGraph alignG(sequences);
     Score<int, Simple> scoreParams(1, -3, -1, -3);
-    AlignConfig<true, false, false, false> configBefore;
+    AlignConfig<false, false, false, false> configBefore;
 
     // Graph
     int score = seqan::globalAlignment(alignG, scoreParams, configBefore);
@@ -467,17 +470,55 @@ void seqan_align(void) {
     seqan::String<seqan::CigarElement<> > cigar2;
     seqan::getCigarString(cigar2, gapsTrans, gapsRead);
     for (unsigned i = 0; i < seqan::length(cigar2); ++i) {
-        std::cout << std::to_string(cigar2[i].count) << cigar2[i].operation;
+        std::cout << cigar2[i].count << cigar2[i].operation;
     }
     std::cout << std::endl;
 
-    // Anchored
-    typedef seqan::String<seqan::GapAnchor<int> > TGapAnchors;
-    typedef seqan::AnchorGaps<TGapAnchors>        TAnchorGaps;
+    // RapMapAligner
+    RapMapAligner a(1, -3, -1, -3, false, false);
+    score = a.align(sseq1, 0, sseq1.length(), sseq2, 0, sseq2.length());
+
+    std::cout << "My aligner score: " << score << std::endl;
+}
+
+void time_seqan(std::string s1, std::string s2, int iterations) {
+    int score;
+
+    // SeqAn
+    {
+        ScopedTimer timer;
+        TSequence seq1 = s1;
+        TSequence seq2 = s2;
+
+        Score<int, Simple> scoreParams(1, -3, -1, -3);
+        AlignConfig<false, false, false, false> configBefore;
+        typedef seqan::Gaps<TSequence> TGaps;
+        TGaps gapsTrans(seq1);
+        TGaps gapsRead(seq2);
+        score = 0;
+        for (int i = 0; i < iterations; ++i) {
+            score += seqan::globalAlignment(gapsTrans, gapsRead, scoreParams, configBefore);
+            // score += seqan::globalAlignmentScore(seq1, seq2, scoreParams, configBefore);
+        }
+        std::cout << "SeqAn Score:" << score << std::endl;
+    }
+    // RapMap
+    {
+        ScopedTimer timer;
+        RapMapAligner a(1, -3, -1, -3, false, false);
+        score = 0;
+        for (int i = 0; i < iterations; ++i) {
+            score += a.align(s1, 0, s1.length(), s2, 0, s2.length());
+        }
+        std::cout << "RapMap Score:" << score << std::endl;
+    }
 
 }
 
 int rapMapSAMap(int argc, char* argv[]) {
+//    seqan_align();
+//    time_seqan("AGTCTGTCGGGTTGCATGAACTAGCTAGCTGACCCCACAGT", "AGTCATGTGGCATGTACACACAC", 10000);
+//    return 0;
     std::cerr << "RapMap Mapper (SA-based)\n";
 
     std::string versionString = rapmap::version;

@@ -19,7 +19,7 @@ set (RAPMAP_MAIN_SRCS
 )
 
 set (RAPMAP_ALIGN_SRCS
-)
+    RapMapAligner.cpp)
 
 set (RAPMAP_LIB_SRCS
 )
@@ -69,7 +69,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 add_library(rsdic STATIC ${RSDICT_LIB_SRCS} )
 
 # Build the rapmap executable
-add_executable(rapmap ${RAPMAP_MAIN_SRCS})
+add_executable(rapmap ${RAPMAP_MAIN_SRCS} ${RAPMAP_ALIGN_SRCS})
 
 #set_target_properties(salmon_core salmon PROPERTIES LINK_SEARCH_END_STATIC TRUE)
 
