@@ -32,18 +32,6 @@ namespace rapmap {
             isRC = (highBits & 0x2);
         }
 
-
-        static constexpr int8_t rc_table[128] = {
-                78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, // 15
-                78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, // 31
-                78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, // 47
-                78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, // 63
-                78, 84, 78, 71, 78, 78, 78, 67, 78, 78, 78, 78, 78, 78, 78, 78, // 79
-                78, 78, 78, 78, 65, 65, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, // 95
-                78, 84, 78, 71, 78, 78, 78, 67, 78, 78, 78, 78, 78, 78, 78, 78, // 101
-                78, 78, 78, 78, 65, 65, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78  // 127
-        };
-
         // Adapted from
         // https://github.com/mengyao/Complete-Striped-Smith-Waterman-Library/blob/8c9933a1685e0ab50c7d8b7926c9068bc0c9d7d2/src/main.c#L36
         void reverseRead(std::string& seq,
@@ -132,14 +120,14 @@ namespace rapmap {
                     qstr = &(qualTemp);
                 }
 
-                rapmap::utils::adjustOverhang(qa.pos, qa.readLen, txpLens[qa.tid], cigarStr);
+//                rapmap::utils::adjustOverhang(qa.pos, qa.readLen, txpLens[qa.tid], cigarStr);
 
                 sstream << readName.c_str() << '\t' // QNAME
                         << flags << '\t' // FLAGS
                         << transcriptName << '\t' // RNAME
                         << qa.pos + 1 << '\t' // POS (1-based)
                         << 255 << '\t' // MAPQ
-                        << cigarStr.c_str() << '\t' // CIGAR
+                        << qa.cigar << '\t' // CIGAR
                         << '*' << '\t' // MATE NAME
                         << 0 << '\t' // MATE POS
                         << qa.fragLen << '\t' // TLEN

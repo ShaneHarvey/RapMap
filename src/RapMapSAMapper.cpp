@@ -118,6 +118,7 @@ void align_single(RapMapSAIndex& rmi,
     int64_t readLen = read.length();
     for (auto& qa : hits) {
         std::string& cigar = qa.cigar;
+        CigarString cigarString;
         cigar.clear();
         int score = 0;
         // Get copy of transcript
@@ -134,25 +135,13 @@ void align_single(RapMapSAIndex& rmi,
         int64_t txpAlignLen = txpMatchStart - txpAlignStart;
         int64_t clipBefore = -qa.pos;
 
-        if (clipBefore > 0) {
-            cigar += std::to_string(clipBefore) + "S";
+        // Clip *after* the match
+        auto clipAfter = txpHitEnd - txpEnd;
+        if (clipAfter > 0) {
+            cigarString.emplace_front(CigarOp::S, clipAfter);
         }
-        // if need align before the match:
-        if (txpAlignLen > 0) {
-            // Align up to the start of the match in the read
-            auto readAlignStart = std::max(clipBefore, 0L);
-            auto readAlignLen = matchStart - readAlignStart;
 
-            // Align with *free begin gaps* in the transcript
-            score += beforeAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
-                                         read, readAlignStart, readAlignLen,
-                                         cigar);
-        }
-        // Add match
-        score += qa.matchLen * beforeAligner.match;
-        cigar += std::to_string(qa.matchLen) + "=";
-
-        // Heuristic allow at most alignment length gaps
+        // Align *after* the match
         auto txpAfterAlignStart = txpMatchEnd;
         auto readAfterMatch = txpHitEnd - txpMatchEnd;
         auto txpAfterAlignEnd = std::min(txpHitEnd + 2 * readAfterMatch, txpEnd);
@@ -166,13 +155,31 @@ void align_single(RapMapSAIndex& rmi,
             // Align with *free end gaps* in the transcript
             score += afterAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
                                         read, readAlignStart, readAlignLen,
-                                        cigar);
+                                        cigarString);
         }
-        auto clipAfter = txpHitEnd - txpEnd;
-        if (clipAfter > 0) {
-            cigar += std::to_string(clipAfter) + "S";
+
+        // Align the match
+        score += qa.matchLen * beforeAligner.match;
+        cigarString.emplace_front(CigarOp::EQ, qa.matchLen);
+
+        // Align *before* the match
+        if (txpAlignLen > 0) {
+            // Align up to the start of the match in the read
+            auto readAlignStart = std::max(clipBefore, 0L);
+            auto readAlignLen = matchStart - readAlignStart;
+
+            // Align with *free begin gaps* in the transcript
+            score += beforeAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
+                                         read, readAlignStart, readAlignLen,
+                                         cigarString);
         }
-        std::cerr << cigar << std::endl;
+
+        // Clip *before* the match
+        if (clipBefore > 0) {
+            cigarString.emplace_front(CigarOp::S, clipBefore);
+        }
+        cigarString.toString(cigar);
+        std::cerr << score << ":" << cigar << std::endl;
     }
 }
 

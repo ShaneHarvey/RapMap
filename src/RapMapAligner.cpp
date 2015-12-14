@@ -1,6 +1,7 @@
 #include <limits>
 #include <iostream>
 #include "RapMapAligner.hpp"
+#include "RapMapUtils.hpp"
 
 void RapMapAligner::init() {
     tm[0][0] = TraceBack::END;
@@ -49,7 +50,7 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
                 trace = TraceBack::GAP_IN_Y;
             }
             // Save match/mismatch to distinguish X vs =
-            if (ref[refStart + i - 1] == read[readStart + j - 1]) {
+            if (rapmap::utils::matches(ref[refStart + i - 1], read[readStart + j - 1])) {
                 score = match;
             } else {
                 score = misMatch;
@@ -136,9 +137,8 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
     return max;
 }
 
-void RapMapAligner::trace(std::string& cigarOut) {
+void RapMapAligner::trace(CigarString& cigar) {
     TraceBack trace = trace_;
-    CigarString cigar;
     bool tracing = true;
     size_t i = maxI_, j = maxJ_;
 
@@ -150,20 +150,20 @@ void RapMapAligner::trace(std::string& cigarOut) {
                 trace = tm[i][j];
                 if (trace & TraceBack::MISMATCH) {
                     trace ^=  TraceBack::MISMATCH; // clear bit
-                    cigar.push(CigarOp::X);
+                    cigar.emplace_front(CigarOp::X);
                 } else {
-                    cigar.push(CigarOp::EQ);
+                    cigar.emplace_front(CigarOp::EQ);
                 }
                 --i;
                 --j;
                 break;
             case TraceBack::GAP_IN_X:
-                cigar.push(CigarOp::I);
+                cigar.emplace_front(CigarOp::I);
                 trace = tx[i][j];
                 --j;
                 break;
             case TraceBack::GAP_IN_Y:
-                cigar.push(CigarOp::D);
+                cigar.emplace_front(CigarOp::D);
                 trace = ty[i][j];
                 --i;
                 break;
@@ -171,7 +171,5 @@ void RapMapAligner::trace(std::string& cigarOut) {
                 tracing = false;
         }
     }
-    // Convert to cigar format
-    cigar.toString(cigarOut);
 }
 

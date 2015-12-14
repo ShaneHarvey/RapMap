@@ -67,7 +67,7 @@ public:
 
     CigarString() : cigar() { }
 
-    inline void push(CigarOp op) {
+    inline void emplace_front(CigarOp op) {
         if (cigar.size() > 0 and cigar.front().op == op) {
             cigar.front().count++;
         } else {
@@ -75,11 +75,27 @@ public:
         }
     };
 
-    inline void push(CigarOp op, int count) {
+    inline void emplace_front(CigarOp op, int count) {
         if (cigar.size() > 0 and cigar.front().op == op) {
             cigar.front().count += count;
         } else {
             cigar.emplace_front(count, op);
+        }
+    };
+
+    inline void emplace_back(CigarOp op) {
+        if (cigar.size() > 0 and cigar.back().op == op) {
+            cigar.back().count++;
+        } else {
+            cigar.emplace_back(1, op);
+        }
+    };
+
+    inline void emplace_back(CigarOp op, int count) {
+        if (cigar.size() > 0 and cigar.back().op == op) {
+            cigar.back().count += count;
+        } else {
+            cigar.emplace_back(count, op);
         }
     };
 
@@ -103,8 +119,8 @@ public:
 
     int match;
     int misMatch;
-    int gapStart;
     int gapExtend;
+    int gapStart;
     bool freeGapsBeforeRead;
     bool freeGapsAfterRead;
 
@@ -150,10 +166,20 @@ public:
         return score;
     }
 
-    void trace(std::string& cigarOut);
+    inline int align(std::string& ref, size_t refStart, size_t refLen,
+                     std::string& read, size_t readStart, size_t readLen,
+                     CigarString& cigar) {
+        int score = align(ref, refStart, refLen, read, readStart, readLen);
+        trace(cigar);
+        return score;
+    }
 
-    inline int score(char a, char b) {
-        return a == b ? match : misMatch;
+    void trace(CigarString& cigar);
+
+    inline void trace(std::string& cigarOut) {
+        CigarString cigar;
+        trace(cigar);
+        cigar.toString(cigarOut);
     }
 
 private:
