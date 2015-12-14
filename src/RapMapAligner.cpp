@@ -2,15 +2,7 @@
 #include <iostream>
 #include "RapMapAligner.hpp"
 
-RapMapAligner::RapMapAligner(int matchIn, int misMatchIn, int gapExtendIn, int gapStartIn,
-                             bool gapBefore, bool gapAfter) :
-        match(matchIn),
-        misMatch(misMatchIn),
-        gapExtend(gapExtendIn),
-        gapStart(gapStartIn),
-        freeGapsBeforeRead(gapBefore),
-        freeGapsAfterRead(gapAfter) {
-    // init
+void RapMapAligner::init() {
     tm[0][0] = TraceBack::END;
     tx[0][0] = TraceBack::END;
     ty[0][0] = TraceBack::END;
@@ -56,6 +48,7 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
                 max = yTemp;
                 trace = TraceBack::Y;
             }
+            // TODO(ShaneHarvey): save match/mismatch to distinguish M vs =
             m[i][j] = score(ref[refStart + i - 1], read[readStart + j - 1]) + max;
             tm[i][j] = trace;
             // Update x
@@ -106,7 +99,7 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
         trace = TraceBack::Y;
     }
 
-    // If free gaps are allowed after the read
+    // Need to find highest score in last column
     if (freeGapsAfterRead) {
         for (size_t i = 1; i < refLen; ++i) {
             int mtemp = m[i][readLen];
@@ -130,15 +123,23 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
         }
     }
 
-    // Traceback
+    // Save info for trace call
+    trace_ = trace;
+    maxI_ = maxI;
+    maxJ_ = readLen;
+    return max;
+}
+
+void RapMapAligner::trace(std::string& cigarOut) {
+    TraceBack trace = trace_;
     CigarString cigar;
     bool tracing = true;
-    size_t i = maxI, j = readLen;
-    std::string cigarString;
+    size_t i = maxI_, j = maxJ_;
+
     while (tracing and (i > 0 or j > 0)) {
         if (freeGapsBeforeRead and j == 0)
             break;
-        switch(trace) {
+        switch (trace) {
             case TraceBack::M:
                 cigar.push(CigarOp::M);
                 trace = tm[i][j];
@@ -159,8 +160,7 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
                 tracing = false;
         }
     }
-    cigar.toString(cigarString);
-    std::cerr << cigarString << std::endl;
-    return max;
+    // Convert to cigar format
+    cigar.toString(cigarOut);
 }
 

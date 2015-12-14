@@ -109,61 +109,17 @@ typedef seqan::Alignment<TDepStringSet> TAlign;
 typedef seqan::Graph<TAlign> TAlignGraph;   // alignment graph
 typedef seqan::String<seqan::CigarElement<char, unsigned> > TCigar;
 
-void combine(std::string& out, int clipBefore, TCigar& before, int numMatch,
-             TCigar& after, int clipAfter) {
-    char op;
-    unsigned count = 0;
-
-    if (clipBefore > 0) {
-        out += std::to_string(clipBefore) + "S";
-    }
-
-    size_t len = seqan::length(before);
-    if (len > 0) {
-        size_t i = 0;
-        while (before[i].operation == 'D' or before[i].operation == 'N') {
-            ++i;
-        }
-        for (; i < len; ++i) {
-            out += std::to_string(before[i].count) + before[i].operation;
-        }
-    }
-
-    out += std::to_string(numMatch) + "=";
-
-    len = seqan::length(after);
-    if (len > 0) {
-        while (after[len-1].operation == 'D' or after[len-1].operation == 'N') {
-            --len;
-        }
-        for (size_t i = 0; i < len; ++i) {
-            out += std::to_string(after[i].count) + after[i].operation;
-        }
-    }
-
-    if (clipAfter > 0) {
-        out += std::to_string(clipAfter) + "S";
-    }
-}
-
 // Align this single end read to all the hit positions
 void align_single(RapMapSAIndex& rmi,
                   std::string& read,
-                  std::vector<rapmap::utils::QuasiAlignment>& hits) {
-    typedef seqan::Gaps<TSequence> TGaps;
-    Score<int, Simple> scoreParams(1, -3, -1, -3);
-    AlignConfig<true, false, false, false> configBefore;
-    AlignConfig<false, false, false, true> configAfter;
-    TGaps gapsTrans;
-    TGaps gapsRead;
-    int score;
-    TCigar before;
-    TCigar after;
-
+                  std::vector<rapmap::utils::QuasiAlignment>& hits,
+                  RapMapAligner& beforeAligner,
+                  RapMapAligner& afterAligner) {
     int64_t readLen = read.length();
     for (auto& qa : hits) {
         std::string& cigar = qa.cigar;
         cigar.clear();
+        int score = 0;
         // Get copy of transcript
         int64_t matchStart = qa.queryPos;
         int64_t txpLen = rmi.txpLens[qa.tid];
@@ -177,25 +133,25 @@ void align_single(RapMapSAIndex& rmi,
         int64_t txpAlignStart = std::max(txpHitStart - 2 * matchStart, txpStart);
         int64_t txpAlignLen = txpMatchStart - txpAlignStart;
         int64_t clipBefore = -qa.pos;
+
+        if (clipBefore > 0) {
+            cigar += std::to_string(clipBefore) + "S";
+        }
         // if need align before the match:
         if (txpAlignLen > 0) {
             // Align up to the start of the match in the read
             auto readAlignStart = std::max(clipBefore, 0L);
             auto readAlignLen = matchStart - readAlignStart;
-            TSequence txpString = rmi.seq.substr(txpAlignStart, txpAlignLen);
-            TSequence readString = read.substr(readAlignStart, readAlignLen);
 
-            assignSource(gapsTrans, txpString);
-            assignSource(gapsRead, readString);
-
-            // bottom/horizontal === transcript
-            // top/vertical === read
             // Align with *free begin gaps* in the transcript
-            score = seqan::globalAlignment(gapsTrans, gapsRead, scoreParams, configBefore);
-            seqan::getCigarString(before, gapsTrans, gapsRead);
-        } else {
-            seqan::clear(before);
+            score += beforeAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
+                                         read, readAlignStart, readAlignLen,
+                                         cigar);
         }
+        // Add match
+        score += qa.matchLen * beforeAligner.match;
+        cigar += std::to_string(qa.matchLen) + "=";
+
         // Heuristic allow at most alignment length gaps
         auto txpAfterAlignStart = txpMatchEnd;
         auto readAfterMatch = txpHitEnd - txpMatchEnd;
@@ -206,21 +162,16 @@ void align_single(RapMapSAIndex& rmi,
             // Alignment after the match to the end of the read (the right end is fixed)
             auto readAlignStart = matchStart + qa.matchLen;
             auto readAlignLen = std::min(readLen - readAlignStart, txpAfterAlignLen);
-            auto txpString = rmi.seq.substr(txpAfterAlignStart, txpAfterAlignLen);
-            auto readString = read.substr(readAlignStart, readAlignLen);
-            assignSource(gapsTrans, txpString);
-            assignSource(gapsRead, readString);
 
-            // top/vertical === transcript
-            // bottom/horizontal === read
             // Align with *free end gaps* in the transcript
-            score = seqan::globalAlignment(gapsTrans, gapsRead, scoreParams, configAfter);
-            seqan::getCigarString(after, gapsTrans, gapsRead);
-        } else {
-            seqan::clear(after);
+            score += afterAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
+                                        read, readAlignStart, readAlignLen,
+                                        cigar);
         }
         auto clipAfter = txpHitEnd - txpEnd;
-        combine(cigar, clipBefore, before, qa.matchLen, after, clipAfter);
+        if (clipAfter > 0) {
+            cigar += std::to_string(clipAfter) + "S";
+        }
         std::cerr << cigar << std::endl;
     }
 }
@@ -256,6 +207,9 @@ void processReadsSingleSA(single_parser* parser,
 
     SASearcher saSearcher(&rmi);
 
+    RapMapAligner beforeAligner(true, false);
+    RapMapAligner afterAligner(false, true);
+
     uint32_t orphanStatus{0};
     while (true) {
         typename single_parser::job j(*parser); // Get a job from the parser: a bunch of reads (at most max_read_group)
@@ -273,7 +227,7 @@ void processReadsSingleSA(single_parser* parser,
             }
             // Calculate optimal alignment at each hit position
             if (hits.size() > 0 and hits.size() <= maxNumHits) {
-                align_single(rmi, j->data[i].seq, hits);
+                align_single(rmi, j->data[i].seq, hits, beforeAligner, afterAligner);
                 if (!noOutput) {
                     rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
                                                            hctr, hits, sstream);
@@ -443,7 +397,6 @@ void seqan_align(void) {
     appendValue(sequences, seq1);
     appendValue(sequences, seq2);
 
-
     TAlignGraph alignG(sequences);
     Score<int, Simple> scoreParams(1, -3, -1, -3);
     AlignConfig<false, false, false, false> configBefore;
@@ -467,57 +420,29 @@ void seqan_align(void) {
     seqan::getCigarString(cigar, gapsTrans, gapsRead);
     std::cout << cigar << std::endl;
 
-    seqan::String<seqan::CigarElement<> > cigar2;
-    seqan::getCigarString(cigar2, gapsTrans, gapsRead);
-    for (unsigned i = 0; i < seqan::length(cigar2); ++i) {
-        std::cout << cigar2[i].count << cigar2[i].operation;
-    }
-    std::cout << std::endl;
-
     // RapMapAligner
     RapMapAligner a(1, -3, -1, -3, false, false);
-    score = a.align(sseq1, 0, sseq1.length(), sseq2, 0, sseq2.length());
+    std::string myCigar;
+    score = a.align(sseq1, 0, sseq1.length(), sseq2, 0, sseq2.length(), myCigar);
 
     std::cout << "My aligner score: " << score << std::endl;
+    std::cout << "My aligner cigar: " << myCigar << std::endl;
 }
 
-void time_seqan(std::string s1, std::string s2, int iterations) {
+void time_aligner(std::string s1, std::string s2, int iterations) {
     int score;
-
-    // SeqAn
-    {
-        ScopedTimer timer;
-        TSequence seq1 = s1;
-        TSequence seq2 = s2;
-
-        Score<int, Simple> scoreParams(1, -3, -1, -3);
-        AlignConfig<false, false, false, false> configBefore;
-        typedef seqan::Gaps<TSequence> TGaps;
-        TGaps gapsTrans(seq1);
-        TGaps gapsRead(seq2);
-        score = 0;
-        for (int i = 0; i < iterations; ++i) {
-            score += seqan::globalAlignment(gapsTrans, gapsRead, scoreParams, configBefore);
-            // score += seqan::globalAlignmentScore(seq1, seq2, scoreParams, configBefore);
-        }
-        std::cout << "SeqAn Score:" << score << std::endl;
+    ScopedTimer timer;
+    RapMapAligner a(1, -3, -1, -3, false, false);
+    score = 0;
+    for (int i = 0; i < iterations; ++i) {
+        score += a.align(s1, 0, s1.length(), s2, 0, s2.length());
     }
-    // RapMap
-    {
-        ScopedTimer timer;
-        RapMapAligner a(1, -3, -1, -3, false, false);
-        score = 0;
-        for (int i = 0; i < iterations; ++i) {
-            score += a.align(s1, 0, s1.length(), s2, 0, s2.length());
-        }
-        std::cout << "RapMap Score:" << score << std::endl;
-    }
-
+    std::cout << "RapMap Score:" << score << std::endl;
 }
 
 int rapMapSAMap(int argc, char* argv[]) {
 //    seqan_align();
-//    time_seqan("AGTCTGTCGGGTTGCATGAACTAGCTAGCTGACCCCACAGT", "AGTCATGTGGCATGTACACACAC", 10000);
+//    time_aligner("AGTCTGTCGGGTTGCATGAAC", "AGTCAT", 100000);
 //    return 0;
     std::cerr << "RapMap Mapper (SA-based)\n";
 
