@@ -17,67 +17,73 @@ void RapMapAligner::init() {
             ty[i][0] = TraceBack::END;
         } else {
             y[i][0] = gapStart + (i - 1) * gapExtend;
-            ty[i][0] = TraceBack::Y;
+            ty[i][0] = TraceBack::GAP_IN_Y;
         }
     }
     for (int j = 1; j <= 255; ++j) {
         m[0][j] = std::numeric_limits<short>::min();
         x[0][j] = gapStart + (j - 1) * gapExtend;
-        tx[0][j] = TraceBack::X;
+        tx[0][j] = TraceBack::GAP_IN_X;
         y[0][j] = std::numeric_limits<short>::min();
     }
 }
 
 int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
                          std::string& read, size_t readStart, size_t readLen) {
-    int max, xTemp, yTemp;
+    int max, xTemp, yTemp, score;
     TraceBack trace;
 
     for (int i = 1; i <= refLen; ++i) {
         for (int j = 1; j <= readLen; ++j) {
             // Update m
             max = m[i - 1][j - 1];
-            trace = TraceBack::M;
+            trace = TraceBack::MATCH;
             xTemp = x[i - 1][j - 1];
             yTemp = y[i - 1][j - 1];
             if (max < xTemp) {
                 max = xTemp;
-                trace = TraceBack::X;
+                trace = TraceBack::GAP_IN_X;
             }
             if (max < yTemp) {
                 max = yTemp;
-                trace = TraceBack::Y;
+                trace = TraceBack::GAP_IN_Y;
             }
-            // TODO(ShaneHarvey): save match/mismatch to distinguish M vs =
-            m[i][j] = score(ref[refStart + i - 1], read[readStart + j - 1]) + max;
+            // Save match/mismatch to distinguish X vs =
+            if (ref[refStart + i - 1] == read[readStart + j - 1]) {
+                score = match;
+            } else {
+                score = misMatch;
+                trace |= TraceBack::MISMATCH;
+            }
+            m[i][j] = score + max;
             tm[i][j] = trace;
             // Update x
             max = gapStart + m[i][j - 1];
-            trace = TraceBack::M;
+            trace = TraceBack::MATCH;
             xTemp = gapExtend + x[i][j - 1];
             yTemp = gapStart + y[i][j - 1];
             if (max < xTemp) {
                 max = xTemp;
-                trace = TraceBack::X;
+                trace = TraceBack::GAP_IN_X;
             }
             if (max < yTemp) {
                 max = yTemp;
-                trace = TraceBack::Y;
+                trace = TraceBack::GAP_IN_Y;
             }
             x[i][j] = max;
             tx[i][j] = trace;
             // Update y
             max = gapStart + m[i - 1][j];
-            trace = TraceBack::M;
+            trace = TraceBack::MATCH;
             xTemp = gapStart + x[i - 1][j];
             yTemp = gapExtend + y[i - 1][j];
             if (max < xTemp) {
                 max = xTemp;
-                trace = TraceBack::X;
+                trace = TraceBack::GAP_IN_X;
             }
             if (max < yTemp) {
                 max = yTemp;
-                trace = TraceBack::Y;
+                trace = TraceBack::GAP_IN_Y;
             }
             y[i][j] = max;
             ty[i][j] = trace;
@@ -87,16 +93,16 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
     // Find maximum total score
     size_t maxI = refLen;
     max = m[maxI][readLen];
-    trace = TraceBack::M;
+    trace = TraceBack::MATCH;
     xTemp = x[maxI][readLen];
     yTemp = y[maxI][readLen];
     if (max < xTemp) {
         max = xTemp;
-        trace = TraceBack::X;
+        trace = TraceBack::GAP_IN_X;
     }
     if (max < yTemp) {
         max = yTemp;
-        trace = TraceBack::Y;
+        trace = TraceBack::GAP_IN_Y;
     }
 
     // Need to find highest score in last column
@@ -108,17 +114,17 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
             if (max < mtemp) {
                 max = mtemp;
                 maxI = i;
-                trace = TraceBack::M;
+                trace = TraceBack::MATCH;
             }
             if (max < xTemp) {
                 max = xTemp;
                 maxI = i;
-                trace = TraceBack::X;
+                trace = TraceBack::GAP_IN_X;
             }
             if (max < yTemp) {
                 max = yTemp;
                 maxI = i;
-                trace = TraceBack::Y;
+                trace = TraceBack::GAP_IN_Y;
             }
         }
     }
@@ -140,18 +146,23 @@ void RapMapAligner::trace(std::string& cigarOut) {
         if (freeGapsBeforeRead and j == 0)
             break;
         switch (trace) {
-            case TraceBack::M:
-                cigar.push(CigarOp::M);
+            case TraceBack::MATCH:
                 trace = tm[i][j];
+                if (trace & TraceBack::MISMATCH) {
+                    trace ^=  TraceBack::MISMATCH; // clear bit
+                    cigar.push(CigarOp::X);
+                } else {
+                    cigar.push(CigarOp::EQ);
+                }
                 --i;
                 --j;
                 break;
-            case TraceBack::X:
+            case TraceBack::GAP_IN_X:
                 cigar.push(CigarOp::I);
                 trace = tx[i][j];
                 --j;
                 break;
-            case TraceBack::Y:
+            case TraceBack::GAP_IN_Y:
                 cigar.push(CigarOp::D);
                 trace = ty[i][j];
                 --i;

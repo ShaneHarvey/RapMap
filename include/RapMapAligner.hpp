@@ -4,14 +4,42 @@
 #include <string>
 #include <deque>
 
-enum class TraceBack : uint8_t {
+enum TraceBack : uint8_t {
     END = 0,
-    M,
-    X,
-    Y
+    MATCH = 1,
+    GAP_IN_X = 2,
+    GAP_IN_Y = 4,
+    MISMATCH = 8,
 };
 
-enum class CigarOp : char {
+inline TraceBack operator|(TraceBack a, TraceBack b) {
+    return static_cast<TraceBack>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
+
+inline TraceBack operator&(TraceBack a, TraceBack b) {
+    return static_cast<TraceBack>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+}
+
+inline TraceBack operator^(TraceBack a, TraceBack b) {
+    return static_cast<TraceBack>(static_cast<uint8_t>(a) ^ static_cast<uint8_t>(b));
+}
+
+inline TraceBack& operator|=(TraceBack& a, TraceBack b) {
+    a = a | b;
+    return a;
+}
+
+inline TraceBack& operator&=(TraceBack& a, TraceBack b) {
+    a = a & b;
+    return a;
+}
+
+inline TraceBack& operator^=(TraceBack& a, TraceBack b) {
+    a = a ^ b;
+    return a;
+}
+
+enum CigarOp : char {
     M = 'M',  // alignment match (can be a sequence match or mismatch)
     I = 'I',  // insertion to the reference
     D = 'D',  // deletion from the reference

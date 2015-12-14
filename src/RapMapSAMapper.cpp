@@ -387,11 +387,9 @@ void processReadsPairSA(paired_parser* parser,
     } // processed all reads
 }
 
-void seqan_align(void) {
-    std::string sseq1 = "AAAACCCCCTTTT";
-    std::string sseq2 = "TTT";
-    TSequence seq1 = sseq1;
-    TSequence seq2 = sseq2;
+void seqan_align(std::string s1, std::string s2) {
+    TSequence seq1 = s1;
+    TSequence seq2 = s2;
 
     TDepStringSet sequences;
     appendValue(sequences, seq1);
@@ -423,7 +421,7 @@ void seqan_align(void) {
     // RapMapAligner
     RapMapAligner a(1, -3, -1, -3, false, false);
     std::string myCigar;
-    score = a.align(sseq1, 0, sseq1.length(), sseq2, 0, sseq2.length(), myCigar);
+    score = a.align(s1, 0, s1.length(), s2, 0, s2.length(), myCigar);
 
     std::cout << "My aligner score: " << score << std::endl;
     std::cout << "My aligner cigar: " << myCigar << std::endl;
@@ -441,7 +439,9 @@ void time_aligner(std::string s1, std::string s2, int iterations) {
 }
 
 int rapMapSAMap(int argc, char* argv[]) {
-//    seqan_align();
+//    seqan_align("AAAACCCCCTTTT", "TTT");
+//    seqan_align("AGTCTGTCGGGTTGCATGAAC", "AGTCAT");
+//    seqan_align("AGTCAA", "AGTCAT");
 //    time_aligner("AGTCTGTCGGGTTGCATGAAC", "AGTCAT", 100000);
 //    return 0;
     std::cerr << "RapMap Mapper (SA-based)\n";
