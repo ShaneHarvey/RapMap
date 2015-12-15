@@ -109,77 +109,161 @@ typedef seqan::Alignment<TDepStringSet> TAlign;
 typedef seqan::Graph<TAlign> TAlignGraph;   // alignment graph
 typedef seqan::String<seqan::CigarElement<char, unsigned> > TCigar;
 
-// Align this single end read to all the hit positions
-void align_single(RapMapSAIndex& rmi,
-                  std::string& read,
-                  std::vector<rapmap::utils::QuasiAlignment>& hits,
-                  RapMapAligner& beforeAligner,
-                  RapMapAligner& afterAligner) {
-    int64_t readLen = read.length();
+inline void seqanAlignGraph(std::string& s1, std::string& s2) {
+    TSequence seq1 = s1;
+    TSequence seq2 = s2;
+
+    TDepStringSet sequences;
+    appendValue(sequences, seq1);
+    appendValue(sequences, seq2);
+
+    TAlignGraph alignG(sequences);
+    Score<int, Simple> scoreParams(1, -3, -1, -3);
+    AlignConfig<true, false, false, true> configBefore;
+
+    // Graph
+    int score = seqan::globalAlignment(alignG, scoreParams, configBefore);
+    std::cout << "Score: " << score << std::endl;
+    std::cout << alignG << std::endl;
+}
+
+// This assumes the readLength < transcriptLength
+inline int realAlign(RapMapSAIndex& rmi, std::string& read,
+                     rapmap::utils::QuasiAlignment& qa,
+                     RapMapAligner& beforeAligner,
+                     RapMapAligner& afterAligner) {
+    auto readLen = read.length();
+    auto& cigar = qa.cigar;
+    CigarString cigarString;
+    auto extraAlignFactor = 2;
+    int score = 0;
+
+    //     txpHitStart
+    //       |
+    //       |txpStart                   txpHitEnd             txpEnd
+    //       |   |txpMatchStart  txpMatchEnd |                    |
+    //       v   v    v               v      v                    v
+    // ----------|----================----------------------------|---------|
+    //       |---|----================|------|
+    //                ^               ^
+    //                |            matchEnd
+    //            matchStart
+
+    // Get copy of transcript
+    int64_t pos                  = qa.pos;
+    int64_t matchStart           = qa.queryPos;
+    int64_t matchEnd             = matchStart + qa.matchLen;
+    int64_t txpLen               = rmi.txpLens[qa.tid];
+    int64_t txpStart             = rmi.txpOffsets[qa.tid];
+    int64_t txpEnd               = txpStart + txpLen;
+    int64_t txpHitStart          = txpStart + pos;
+    int64_t txpHitEnd            = txpHitStart + readLen;
+    int64_t txpMatchStart        = txpHitStart + matchStart;
+    int64_t txpMatchEnd          = txpHitStart + matchEnd;
+    // If the read is over hanging before/after the trancript
+    int64_t clipBefore           = std::max(0L, -pos);
+    int64_t clipAfter            = std::max(0L, txpHitEnd-txpEnd);
+    int64_t alignBeforeLen       = std::max(0L, matchStart - clipBefore);
+    int64_t txpAlignBeforeStart  = txpMatchStart - alignBeforeLen;
+    int64_t readAlignBeforeStart = matchStart - alignBeforeLen;
+    int64_t alignAfterLen        = std::max(0L, txpHitEnd - clipAfter - txpMatchEnd);
+    int64_t txpAlignAfterStart   = txpMatchEnd;
+    int64_t readAlignAfterStart  = matchEnd;
+
+    // Assumptions
+    assert(txpMatchEnd <= txpEnd);
+    assert(txpMatchStart >= txpStart);
+
+    if (clipAfter > 0) {
+        cigarString.emplace_front(CigarOp::S, clipAfter);
+    }
+
+//    std::string tBefore, tAfter;
+
+    if (alignAfterLen > 0) {
+        // align after with some extra space for aligning to transcript
+        int64_t extraLen = std::min(extraAlignFactor * alignAfterLen, txpEnd - txpAlignAfterStart);
+        // Align with *free end gaps* in the transcript
+        score += afterAligner.align(rmi.seq, txpAlignAfterStart, extraLen + alignAfterLen,
+                                    read, readAlignAfterStart, alignAfterLen,
+                                    cigarString);
+//        tAfter = rmi.seq.substr(txpAlignAfterStart, extraLen + alignAfterLen);
+    }
+
+    // align match
+    score += qa.matchLen * beforeAligner.match;
+    cigarString.emplace_front(CigarOp::EQ, qa.matchLen);
+
+    if (alignBeforeLen > 0) {
+        // align before with some extra space for aligning to transcript
+        int64_t extraLen = std::min(extraAlignFactor * alignBeforeLen, txpAlignBeforeStart - txpStart);
+        int64_t txpExtraStart = txpAlignBeforeStart - extraLen;
+        // Align with *free begin gaps* in the transcript
+        score += beforeAligner.align(rmi.seq, txpExtraStart, extraLen + alignBeforeLen,
+                                     read, readAlignBeforeStart, alignBeforeLen,
+                                     cigarString);
+//        tBefore = rmi.seq.substr(txpExtraStart, extraLen + alignBeforeLen);
+    }
+
+    // Clip *before* the match
+    if (clipBefore > 0) {
+        cigarString.emplace_front(CigarOp::S, clipBefore);
+    }
+    cigarString.toString(cigar);
+
+//    auto rBefore = read.substr(readAlignBeforeStart, alignBeforeLen);
+//    auto tMatch = rmi.seq.substr(txpMatchStart, qa.matchLen);
+//    auto rMatch = read.substr(matchStart, qa.matchLen);
+//    auto rAfter = read.substr(readAlignAfterStart, alignAfterLen);
+//    std::cerr << "Align Score: " << score << std::endl;
+//    std::cerr << tBefore << ":" << tMatch << ":" << tAfter << std::endl;
+//    std::cerr << rBefore << ":" << rMatch << ":" << rAfter << std::endl;
+//    std::cerr << cigar << std::endl;
+    return score;
+}
+
+void alignSingleAll(RapMapSAIndex& rmi,
+                    std::string& fwdRead,
+                    std::vector<rapmap::utils::QuasiAlignment>& hits,
+                    RapMapAligner& beforeAligner,
+                    RapMapAligner& afterAligner) {
+    int64_t readLen = fwdRead.length();
+    std::string revRead;
+    for(int64_t i = readLen - 1; i >= 0; --i) {
+        revRead += static_cast<char>(rapmap::utils::rc_table[(int8_t)fwdRead[i]]);
+    }
     for (auto& qa : hits) {
-        std::string& cigar = qa.cigar;
-        CigarString cigarString;
-        cigar.clear();
-        int score = 0;
-        // Get copy of transcript
-        int64_t matchStart = qa.queryPos;
-        int64_t txpLen = rmi.txpLens[qa.tid];
-        int64_t txpStart = rmi.txpOffsets[qa.tid];
-        int64_t txpEnd = txpStart + txpLen;
-        int64_t txpHitStart = txpStart + qa.pos;
-        int64_t txpHitEnd = txpHitStart + readLen;
-        int64_t txpMatchStart = txpHitStart + matchStart;
-        int64_t txpMatchEnd = txpMatchStart + qa.matchLen;
-        // Heuristic allow at most alignment length gaps
-        int64_t txpAlignStart = std::max(txpHitStart - 2 * matchStart, txpStart);
-        int64_t txpAlignLen = txpMatchStart - txpAlignStart;
-        int64_t clipBefore = -qa.pos;
+        // Forward or reverse?
+        std::string& read = qa.fwd ? fwdRead : revRead;
+        realAlign(rmi, read, qa, beforeAligner, afterAligner);
+    }
+}
 
-        // Clip *after* the match
-        auto clipAfter = txpHitEnd - txpEnd;
-        if (clipAfter > 0) {
-            cigarString.emplace_front(CigarOp::S, clipAfter);
+void fakeAlign(RapMapSAIndex& rmi, std::string& read,
+               std::vector<rapmap::utils::QuasiAlignment>& hits) {
+    for (auto& qa : hits) {
+        auto readLen = read.length();
+        auto pos = qa.pos;
+        auto txpLen = rmi.txpLens[qa.tid];
+        if (pos + readLen < 0) {
+            qa.cigar = std::to_string(readLen) + "S";
+            // Now adjust the mapping position
+            qa.pos = 0;
+        } else if (pos < 0) {
+            int32_t matchLen = readLen + pos;
+            int32_t clipLen = readLen - matchLen;
+            qa.cigar = std::to_string(clipLen) + "S" + std::to_string(matchLen) + "M";
+            // Now adjust the mapping position
+            qa.pos = 0;
+        } else if (pos > txpLen) {
+            qa.cigar = std::to_string(readLen) + "S";
+        } else if (pos + readLen > txpLen) {
+            int32_t matchLen = txpLen - pos;
+            int32_t clipLen = readLen - matchLen;
+            qa.cigar = std::to_string(matchLen) + "M" + std::to_string(clipLen) + "S";
+        } else {
+            qa.cigar = std::to_string(readLen) + "M";
         }
-
-        // Align *after* the match
-        auto txpAfterAlignStart = txpMatchEnd;
-        auto readAfterMatch = txpHitEnd - txpMatchEnd;
-        auto txpAfterAlignEnd = std::min(txpHitEnd + 2 * readAfterMatch, txpEnd);
-        auto txpAfterAlignLen = txpAfterAlignEnd - txpAfterAlignStart;
-        // if need align after the match:
-        if (txpAfterAlignLen > 0) {
-            // Alignment after the match to the end of the read (the right end is fixed)
-            auto readAlignStart = matchStart + qa.matchLen;
-            auto readAlignLen = std::min(readLen - readAlignStart, txpAfterAlignLen);
-
-            // Align with *free end gaps* in the transcript
-            score += afterAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
-                                        read, readAlignStart, readAlignLen,
-                                        cigarString);
-        }
-
-        // Align the match
-        score += qa.matchLen * beforeAligner.match;
-        cigarString.emplace_front(CigarOp::EQ, qa.matchLen);
-
-        // Align *before* the match
-        if (txpAlignLen > 0) {
-            // Align up to the start of the match in the read
-            auto readAlignStart = std::max(clipBefore, 0L);
-            auto readAlignLen = matchStart - readAlignStart;
-
-            // Align with *free begin gaps* in the transcript
-            score += beforeAligner.align(rmi.seq, txpAlignStart, txpAlignLen,
-                                         read, readAlignStart, readAlignLen,
-                                         cigarString);
-        }
-
-        // Clip *before* the match
-        if (clipBefore > 0) {
-            cigarString.emplace_front(CigarOp::S, clipBefore);
-        }
-        cigarString.toString(cigar);
-        std::cerr << score << ":" << cigar << std::endl;
     }
 }
 
@@ -192,23 +276,10 @@ void processReadsSingleSA(single_parser* parser,
                           HitCounters& hctr,
                           uint32_t maxNumHits,
                           bool noOutput,
-                          bool strictCheck) {
-
-    auto& txpNames = rmi.txpNames;
-    std::vector<uint32_t>& txpOffsets = rmi.txpOffsets;
-    auto& txpLens = rmi.txpLens;
-    uint32_t n{0};
-    constexpr char bases[] = {'A', 'C', 'G', 'T'};
-
-    auto logger = spdlog::get("stderrLog");
-
+                          bool strictCheck,
+                          bool doAlign) {
     fmt::MemoryWriter sstream;
-    size_t batchSize{2500};
     std::vector<QuasiAlignment> hits;
-
-    size_t readLen{0};
-    bool tooManyHits{false};
-    uint16_t flags;
 
     SingleAlignmentFormatter<RapMapSAIndex*> formatter(&rmi);
 
@@ -217,12 +288,10 @@ void processReadsSingleSA(single_parser* parser,
     RapMapAligner beforeAligner(true, false);
     RapMapAligner afterAligner(false, true);
 
-    uint32_t orphanStatus{0};
     while (true) {
         typename single_parser::job j(*parser); // Get a job from the parser: a bunch of reads (at most max_read_group)
         if (j.is_empty()) break;                 // If we got nothing, then quit.
         for (size_t i = 0; i < j->nb_filled; ++i) { // For each sequence
-            readLen = j->data[i].seq.length();
             ++hctr.numReads;
             hits.clear();
             hitCollector(j->data[i].seq, hits, saSearcher, MateStatus::SINGLE_END, strictCheck);
@@ -234,7 +303,11 @@ void processReadsSingleSA(single_parser* parser,
             }
             // Calculate optimal alignment at each hit position
             if (hits.size() > 0 and hits.size() <= maxNumHits) {
-                align_single(rmi, j->data[i].seq, hits, beforeAligner, afterAligner);
+                if (doAlign) {
+                    alignSingleAll(rmi, j->data[i].seq, hits, beforeAligner, afterAligner);
+                } else {
+                    fakeAlign(rmi, j->data[i].seq, hits);
+                }
                 if (!noOutput) {
                     rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
                                                            hctr, hits, sstream);
@@ -297,31 +370,21 @@ void processReadsPairSA(paired_parser* parser,
                         HitCounters& hctr,
                         uint32_t maxNumHits,
                         bool noOutput,
-                        bool strictCheck) {
-    auto& txpNames = rmi.txpNames;
-    std::vector<uint32_t>& txpOffsets = rmi.txpOffsets;
-    auto& txpLens = rmi.txpLens;
-    uint32_t n{0};
-    constexpr char bases[] = {'A', 'C', 'G', 'T'};
-
-    auto logger = spdlog::get("stderrLog");
-
+                        bool strictCheck,
+                        bool doAlign) {
     fmt::MemoryWriter sstream;
-    size_t batchSize{1000};
     std::vector<QuasiAlignment> leftHits;
     std::vector<QuasiAlignment> rightHits;
     std::vector<QuasiAlignment> jointHits;
 
     size_t readLen{0};
     bool tooManyHits{false};
-    uint16_t flags1, flags2;
 
     // Create a formatter for alignments
     PairAlignmentFormatter<RapMapSAIndex*> formatter(&rmi);
 
     SASearcher saSearcher(&rmi);
 
-    uint32_t orphanStatus{0};
     while (true) {
         typename paired_parser::job j(*parser); // Get a job from the parser: a bunch of reads (at most max_read_group)
         if (j.is_empty()) break;                 // If we got nothing, quit
@@ -333,14 +396,10 @@ void processReadsPairSA(paired_parser* parser,
             leftHits.clear();
             rightHits.clear();
 
-            bool lh = hitCollector(j->data[i].first.seq,
-                                   leftHits, saSearcher,
-                                   MateStatus::PAIRED_END_LEFT,
-                                   strictCheck);
-            bool rh = hitCollector(j->data[i].second.seq,
-                                   rightHits, saSearcher,
-                                   MateStatus::PAIRED_END_RIGHT,
-                                   strictCheck);
+            hitCollector(j->data[i].first.seq, leftHits, saSearcher,
+                         MateStatus::PAIRED_END_LEFT, strictCheck);
+            hitCollector(j->data[i].second.seq, rightHits, saSearcher,
+                         MateStatus::PAIRED_END_RIGHT, strictCheck);
 
             rapmap::utils::mergeLeftRightHits(
                     leftHits, rightHits, jointHits,
@@ -404,7 +463,7 @@ void seqan_align(std::string s1, std::string s2) {
 
     TAlignGraph alignG(sequences);
     Score<int, Simple> scoreParams(1, -3, -1, -3);
-    AlignConfig<false, false, false, false> configBefore;
+    AlignConfig<false, false, false, true> configBefore;
 
     // Graph
     int score = seqan::globalAlignment(alignG, scoreParams, configBefore);
@@ -426,7 +485,7 @@ void seqan_align(std::string s1, std::string s2) {
     std::cout << cigar << std::endl;
 
     // RapMapAligner
-    RapMapAligner a(1, -3, -1, -3, false, false);
+    RapMapAligner a(1, -3, -1, -3, false, true);
     std::string myCigar;
     score = a.align(s1, 0, s1.length(), s2, 0, s2.length(), myCigar);
 
@@ -446,10 +505,20 @@ void time_aligner(std::string s1, std::string s2, int iterations) {
 }
 
 int rapMapSAMap(int argc, char* argv[]) {
+//    seqan_align("ACTTTTGTAAAGATTAAGCTCATTTAGTGTTGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTAGTATTTCAGCAGGATCTGCTGGCAGGGTTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTTTGA",
+//                "GCCTTCCGTGCCTTGTGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+//    seqan_align("TCCAGGGGGAGGCCTGCAGGCCCCTGGCCCCTTCCACCACCTCTGCCCTCCGTCTGCAGACCTCGTCCATCTGCACCAGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTGTTCCTTTCCTTTGAAGTCACATTTTCTTTTAAAATTTTTTG",
+//                "GATTCGCCTTGTGCCTTTATACCGACCTCATCTGCACTGGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTA");
 //    seqan_align("AAAACCCCCTTTT", "TTT");
 //    seqan_align("AGTCTGTCGGGTTGCATGAAC", "AGTCAT");
 //    seqan_align("AGTCAA", "AGTCAT");
 //    time_aligner("AGTCTGTCGGGTTGCATGAAC", "AGTCAT", 100000);
+//    seqan_align("ACTTTTGTAAAGATTAAGCTCATTTAGTGT",
+//                "GCCTTCCGTGCCTTG");
+//    seqan_align("TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+//                "TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+//    seqan_align("AGTATTTCAGCAGGATCTGCTGGCAGGGTTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTTTGA",
+//                "TTTTTTTTTTTTTTTTTTTTTT");
 //    return 0;
     std::cerr << "RapMap Mapper (SA-based)\n";
 
@@ -472,19 +541,20 @@ int rapMapSAMap(int argc, char* argv[]) {
     TCLAP::ValueArg<uint32_t> maxNumHits("m", "maxNumHits", "Reads mapping to more than this many loci are discarded",
                                          false, 200, "positive integer");
     TCLAP::ValueArg<std::string> outname("o", "output", "The output file (default: stdout)", false, "", "path");
+    TCLAP::SwitchArg align("a", "align", "Compute the optimal alignments (CIGAR) for each mapping position", false);
     TCLAP::SwitchArg noout("n", "noOutput", "Don't write out any alignments (for speed testing purposes)", false);
     TCLAP::SwitchArg strict("s", "strictCheck",
                             "Perform extra checks to try and assure that only equally \"best\" mappings for a read are reported",
                             false);
     cmd.add(index);
-    cmd.add(noout);
-
     cmd.add(read1);
     cmd.add(read2);
     cmd.add(unmatedReads);
-    cmd.add(outname);
     cmd.add(numThreads);
     cmd.add(maxNumHits);
+    cmd.add(outname);
+    cmd.add(noout);
+    cmd.add(align);
     cmd.add(strict);
 
     auto consoleSink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
@@ -614,7 +684,8 @@ int rapMapSAMap(int argc, char* argv[]) {
                                          std::ref(hctrs),
                                          maxNumHits.getValue(),
                                          noout.getValue(),
-                                         strictCheck);
+                                         strictCheck,
+                                         align.getValue());
                 }
 
                 for (auto& t : threads) { t.join(); }
@@ -644,7 +715,8 @@ int rapMapSAMap(int argc, char* argv[]) {
                                          std::ref(hctrs),
                                          maxNumHits.getValue(),
                                          noout.getValue(),
-                                         strictCheck);
+                                         strictCheck,
+                                         align.getValue());
                 }
                 for (auto& t : threads) { t.join(); }
             }

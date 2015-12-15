@@ -504,7 +504,7 @@ public:
                 auto globalPos = SA[i];
                 auto txpID = rmi_->transcriptAtPosition(globalPos);
                 // the offset into this transcript
-                auto pos = globalPos - txpStarts[txpID];
+                auto pos = globalPos - txpStarts[txpID] - saIntervalHit.queryPos;
                 hits.emplace_back(txpID, pos, true, readLen, saIntervalHit.len, saIntervalHit.queryPos);
                 hits.back().mateStatus = mateStatus;
             }
@@ -540,7 +540,7 @@ public:
                 auto globalPos = SA[i];
                 auto txpID = rmi_->transcriptAtPosition(globalPos);
                 // the offset into this transcript
-                auto pos = globalPos - txpStarts[txpID];
+                auto pos = globalPos - txpStarts[txpID] - saIntervalHit.queryPos;
                 hits.emplace_back(txpID, pos, false, readLen, saIntervalHit.len, saIntervalHit.queryPos);
                 hits.back().mateStatus = mateStatus;
             }
