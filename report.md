@@ -30,6 +30,8 @@ Test cases to make sure aligner and CIGAR reporting works properly.
 
 
 # Some alignments are sub-optimal!
+
+```
 Optimal Semi-global alignment:
 Trans: TCCAGGGGGAGGCCTGCAGGCCCCTGGCCCCTTCCACCACCTCTGCCCTCCGTCTGCAGACCTCGTCCATCTGCACCAGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTGTTCCTTTCCTTTGAAGTCACATTTTCTTTTAAAATTTTTTG
 Read:  GATTCGCCTTGTGCCTTTATACCGACCTCATCTGCACTGGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTA
@@ -58,9 +60,9 @@ Alignment matrix:
 RapMap Sub-Optimal Alignment:
 Score: 6
 CIGAR: 1=4I2=2I1=1X6=1X1=1D1=1I2=2I2=1I2=2D2=2D2=1X1=3D1X2=2D36=1X
+```
 
-
-
+```
 Trans: ACTTTTGTAAAGATTAAGCTCATTTAGTGT TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT AGTATTTCAGCAGGATCTGCTGGCAGGGTTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTTTGA
 Read:  GCCTTCCGTGCCTTG                TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TTTTTTTTTTTTTTTTTTTTTT
 Reverse hit!
@@ -88,7 +90,7 @@ Alignment matrix:
 
 21:3I2=3I1=3I2=1X40=4D1=7D7=1X4=1X3=1X3=
 Before:Match:After:Start 45:39:66:15
-
+```
 
 
 
@@ -124,6 +126,9 @@ https://www.seqan.de/
 Looks very promising but performance was prohibitive.
 
 
+# Bugs In RapMap
+
+```
                               txpHitStart
                                   |
                                   v
@@ -134,8 +139,7 @@ FW: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACACAAGGCACGGAAGGC
                    ^
                    |
                 queryPos
-
-
+```
 
 Looks like the qa.pos is not valid???????????
 Yes, in two places in the code we forgot to subtract the k-mer position from
@@ -166,8 +170,40 @@ hit in the SA.
 |  1       |  10M     |  179.51s  |     701.82s    |   3.91x  |
 |  8       |  10M     |   41.71s  |     164.21s    |   3.93x  |
 
-# Improvements in RapMap Alignment
+# Improvements to RapMap Alignment
 
-# Improvements in RapMap
+# Improvements to RapMap
+There are a number of improvements to be made in RapMap both in terms of readability and performance. First, we could only reverse complement the read once at the start of proccessing a read. This would improve performance because a read would not need to be reverse complemented in multiple places leading to wasted memory allocation and CPU cycles. This change code additionally improve code health. reduce code duplication and improve readability, performance, and maintainability. Readability because there would less code to read. Performance because a read would not need to be reverse complemented in multiple places. Maintainability because we would have less chance of modifying the code in copy A but forgetting to update copy B. First code that is mostly duplicated in this respect code be refactored.
 
-Only reverse complement the read once at the start of the read. This could reduce code duplication and improve both readability and performance.
+```c++
+void collectHits(string& read, vector<QuasiAlignment>& hits, /* omited extra params */) {
+      /* code to proccess read k-mers */
+      ...
+      /* code to process reverse complement read k-mers */
+      ...
+      /* code to proccess read hits */
+      ...
+      /* code to process reverse complement read hits */
+      ...
+}
+```
+An refactored version would look something like,
+```c++
+void collectHits(string& read, vector<QuasiAlignment>& hits, /* omited extra params */) {
+      /* code to proccess read k-mers */
+      ...
+      /* code to proccess read hits */
+      ...
+}
+
+void proccessRead(string& read) {
+      string revCompRead = reverseComplement(read);
+      vector<QuasiAlignment> hits;
+      collectHits(read, hits,  /* omited extra params */);
+      collectHits(revCompRead, hits,  /* omited extra params */);
+      
+      /* output hits */
+}
+```
+
+This pattern is present in multiple places in the RapMap code base. These proposed changes would improve code health making it easier for fresh minds to become familar with the RapMap code base. Additionally it would be easier to contribute new features and optimizations, because of de-duplication.
