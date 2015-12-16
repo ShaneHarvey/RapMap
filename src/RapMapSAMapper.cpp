@@ -102,7 +102,7 @@ using FixedWriter = rapmap::utils::FixedWriter;
 // SeqAn
 using seqan::Simple;
 using seqan::AlignConfig;
-using  seqan::Score;
+using seqan::Score;
 typedef seqan::String<seqan::Dna> TSequence;                 // sequence type
 typedef seqan::StringSet<TSequence, seqan::Dependent<> > TDepStringSet;   // dependent string set
 typedef seqan::Alignment<TDepStringSet> TAlign;
@@ -128,12 +128,17 @@ inline void seqanAlignGraph(std::string& s1, std::string& s2) {
 }
 
 // This assumes the readLength < transcriptLength
-inline int realAlign(RapMapSAIndex& rmi, std::string& read,
-                     rapmap::utils::QuasiAlignment& qa,
-                     RapMapAligner& beforeAligner,
-                     RapMapAligner& afterAligner) {
+inline int alignHit(RapMapSAIndex& rmi,
+                    RapMapAligner& beforeAligner,
+                    RapMapAligner& afterAligner,
+                    std::string& read,
+                    uint32_t tid,
+                    int32_t& pos,
+                    uint32_t queryPos,
+                    uint32_t matchLen,
+                    std::string& cigar,
+                    bool align) {
     auto readLen = read.length();
-    auto& cigar = qa.cigar;
     CigarString cigarString;
     auto extraAlignFactor = 2;
     int score = 0;
@@ -150,25 +155,24 @@ inline int realAlign(RapMapSAIndex& rmi, std::string& read,
     //            matchStart
 
     // Get copy of transcript
-    int64_t pos                  = qa.pos;
-    int64_t matchStart           = qa.queryPos;
-    int64_t matchEnd             = matchStart + qa.matchLen;
-    int64_t txpLen               = rmi.txpLens[qa.tid];
-    int64_t txpStart             = rmi.txpOffsets[qa.tid];
-    int64_t txpEnd               = txpStart + txpLen;
-    int64_t txpHitStart          = txpStart + pos;
-    int64_t txpHitEnd            = txpHitStart + readLen;
-    int64_t txpMatchStart        = txpHitStart + matchStart;
-    int64_t txpMatchEnd          = txpHitStart + matchEnd;
+    int64_t matchStart = queryPos;
+    int64_t matchEnd = matchStart + matchLen;
+    int64_t txpLen = rmi.txpLens[tid];
+    int64_t txpStart = rmi.txpOffsets[tid];
+    int64_t txpEnd = txpStart + txpLen;
+    int64_t txpHitStart = txpStart + pos;
+    int64_t txpHitEnd = txpHitStart + readLen;
+    int64_t txpMatchStart = txpHitStart + matchStart;
+    int64_t txpMatchEnd = txpHitStart + matchEnd;
     // If the read is over hanging before/after the trancript
-    int64_t clipBefore           = std::max(0L, -pos);
-    int64_t clipAfter            = std::max(0L, txpHitEnd-txpEnd);
-    int64_t alignBeforeLen       = std::max(0L, matchStart - clipBefore);
-    int64_t txpAlignBeforeStart  = txpMatchStart - alignBeforeLen;
+    int64_t clipBefore = std::max(0, -pos);
+    int64_t clipAfter = std::max(0L, txpHitEnd - txpEnd);
+    int64_t alignBeforeLen = std::max(0L, matchStart - clipBefore);
+    int64_t txpAlignBeforeStart = txpMatchStart - alignBeforeLen;
     int64_t readAlignBeforeStart = matchStart - alignBeforeLen;
-    int64_t alignAfterLen        = std::max(0L, txpHitEnd - clipAfter - txpMatchEnd);
-    int64_t txpAlignAfterStart   = txpMatchEnd;
-    int64_t readAlignAfterStart  = matchEnd;
+    int64_t alignAfterLen = std::max(0L, txpHitEnd - clipAfter - txpMatchEnd);
+    int64_t txpAlignAfterStart = txpMatchEnd;
+    int64_t readAlignAfterStart = matchEnd;
 
     // Assumptions
     assert(txpMatchEnd <= txpEnd);
@@ -184,24 +188,34 @@ inline int realAlign(RapMapSAIndex& rmi, std::string& read,
         // align after with some extra space for aligning to transcript
         int64_t extraLen = std::min(extraAlignFactor * alignAfterLen, txpEnd - txpAlignAfterStart);
         // Align with *free end gaps* in the transcript
-        score += afterAligner.align(rmi.seq, txpAlignAfterStart, extraLen + alignAfterLen,
-                                    read, readAlignAfterStart, alignAfterLen,
-                                    cigarString);
+        if (align) {
+            score += afterAligner.align(rmi.seq, txpAlignAfterStart, extraLen + alignAfterLen,
+                                        read, readAlignAfterStart, alignAfterLen,
+                                        cigarString);
+        } else {
+            cigarString.emplace_front(CigarOp::M, alignAfterLen);
+            score += alignAfterLen;
+        }
 //        tAfter = rmi.seq.substr(txpAlignAfterStart, extraLen + alignAfterLen);
     }
 
     // align match
-    score += qa.matchLen * beforeAligner.match;
-    cigarString.emplace_front(CigarOp::EQ, qa.matchLen);
+    score += matchLen * beforeAligner.match;
+    cigarString.emplace_front(CigarOp::EQ, matchLen);
 
     if (alignBeforeLen > 0) {
         // align before with some extra space for aligning to transcript
         int64_t extraLen = std::min(extraAlignFactor * alignBeforeLen, txpAlignBeforeStart - txpStart);
         int64_t txpExtraStart = txpAlignBeforeStart - extraLen;
         // Align with *free begin gaps* in the transcript
-        score += beforeAligner.align(rmi.seq, txpExtraStart, extraLen + alignBeforeLen,
-                                     read, readAlignBeforeStart, alignBeforeLen,
-                                     cigarString);
+        if (align) {
+            score += beforeAligner.align(rmi.seq, txpExtraStart, extraLen + alignBeforeLen,
+                                         read, readAlignBeforeStart, alignBeforeLen,
+                                         cigarString);
+        } else {
+            cigarString.emplace_front(CigarOp::M, alignBeforeLen);
+            score += alignBeforeLen;
+        }
 //        tBefore = rmi.seq.substr(txpExtraStart, extraLen + alignBeforeLen);
     }
 
@@ -223,46 +237,67 @@ inline int realAlign(RapMapSAIndex& rmi, std::string& read,
 }
 
 void alignSingleAll(RapMapSAIndex& rmi,
+                    RapMapAligner& beforeAligner,
+                    RapMapAligner& afterAligner,
                     std::string& fwdRead,
                     std::vector<rapmap::utils::QuasiAlignment>& hits,
-                    RapMapAligner& beforeAligner,
-                    RapMapAligner& afterAligner) {
+                    bool align) {
     int64_t readLen = fwdRead.length();
     std::string revRead;
-    for(int64_t i = readLen - 1; i >= 0; --i) {
-        revRead += static_cast<char>(rapmap::utils::rc_table[(int8_t)fwdRead[i]]);
+    for (int64_t i = readLen - 1; i >= 0; --i) {
+        revRead += static_cast<char>(rapmap::utils::rc_table[(int8_t) fwdRead[i]]);
     }
     for (auto& qa : hits) {
         // Forward or reverse?
         std::string& read = qa.fwd ? fwdRead : revRead;
-        realAlign(rmi, read, qa, beforeAligner, afterAligner);
+        qa.score = alignHit(rmi, beforeAligner, afterAligner, read, qa.tid,
+                            qa.pos, qa.queryPos, qa.matchLen, qa.cigar, align);
     }
 }
 
-void fakeAlign(RapMapSAIndex& rmi, std::string& read,
-               std::vector<rapmap::utils::QuasiAlignment>& hits) {
+void alignPairedAll(RapMapSAIndex& rmi,
+                    RapMapAligner& beforeAligner,
+                    RapMapAligner& afterAligner,
+                    std::string& fwdLeftRead,
+                    std::string& fwdRightRead,
+                    std::vector<rapmap::utils::QuasiAlignment>& hits,
+                    bool align) {
+    std::string revLeftRead, revRightRead;
+    for (int64_t i = fwdLeftRead.length() - 1; i >= 0; --i) {
+        revLeftRead += static_cast<char>(rapmap::utils::rc_table[(int8_t) fwdLeftRead[i]]);
+    }
+    for (int64_t i = fwdRightRead.length() - 1; i >= 0; --i) {
+        revRightRead += static_cast<char>(rapmap::utils::rc_table[(int8_t) fwdRightRead[i]]);
+    }
     for (auto& qa : hits) {
-        auto readLen = read.length();
-        auto pos = qa.pos;
-        auto txpLen = rmi.txpLens[qa.tid];
-        if (pos + readLen < 0) {
-            qa.cigar = std::to_string(readLen) + "S";
-            // Now adjust the mapping position
-            qa.pos = 0;
-        } else if (pos < 0) {
-            int32_t matchLen = readLen + pos;
-            int32_t clipLen = readLen - matchLen;
-            qa.cigar = std::to_string(clipLen) + "S" + std::to_string(matchLen) + "M";
-            // Now adjust the mapping position
-            qa.pos = 0;
-        } else if (pos > txpLen) {
-            qa.cigar = std::to_string(readLen) + "S";
-        } else if (pos + readLen > txpLen) {
-            int32_t matchLen = txpLen - pos;
-            int32_t clipLen = readLen - matchLen;
-            qa.cigar = std::to_string(matchLen) + "M" + std::to_string(clipLen) + "S";
-        } else {
-            qa.cigar = std::to_string(readLen) + "M";
+        // Forward or reverse?
+        std::string& leftRead = qa.fwd ? fwdLeftRead : revLeftRead;
+        std::string& rightRead = qa.mateIsFwd ? fwdRightRead : revRightRead;
+        switch (qa.mateStatus) {
+            case MateStatus::PAIRED_END_PAIRED:
+                qa.score = alignHit(rmi, beforeAligner, afterAligner,
+                                    leftRead, qa.tid, qa.pos, qa.queryPos,
+                                    qa.matchLen, qa.cigar, align);
+                qa.mateScore = alignHit(rmi, beforeAligner, afterAligner,
+                                        rightRead, qa.tid, qa.matePos,
+                                        qa.mateQueryPos, qa.mateMatchLen,
+                                        qa.mateCigar, align);
+//                std::cerr << "Pair" << std::endl;
+//                std::cerr << qa.cigar << ":" << qa.score << std::endl;
+//                std::cerr << qa.mateCigar << ":" << qa.mateScore << std::endl;
+                break;
+            case MateStatus::PAIRED_END_LEFT:
+                qa.score = alignHit(rmi, beforeAligner, afterAligner,
+                                    leftRead, qa.tid, qa.pos, qa.queryPos,
+                                    qa.matchLen, qa.cigar, align);
+                break;
+            case MateStatus::PAIRED_END_RIGHT:
+                qa.score = alignHit(rmi, beforeAligner, afterAligner,
+                                    rightRead, qa.tid, qa.pos, qa.queryPos,
+                                    qa.matchLen, qa.cigar, align);
+                break;
+            default:
+                break;
         }
     }
 }
@@ -303,11 +338,7 @@ void processReadsSingleSA(single_parser* parser,
             }
             // Calculate optimal alignment at each hit position
             if (hits.size() > 0 and hits.size() <= maxNumHits) {
-                if (doAlign) {
-                    alignSingleAll(rmi, j->data[i].seq, hits, beforeAligner, afterAligner);
-                } else {
-                    fakeAlign(rmi, j->data[i].seq, hits);
-                }
+                alignSingleAll(rmi, beforeAligner, afterAligner, j->data[i].seq, hits, doAlign);
                 if (!noOutput) {
                     rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
                                                            hctr, hits, sstream);
@@ -326,9 +357,9 @@ void processReadsSingleSA(single_parser* parser,
                     }
                     std::cerr << "saw " << hctr.numReads << " reads\n";
                     std::cerr << "# hits per read = "
-                              << hctr.totHits / static_cast<float>(hctr.numReads) << "\n";
+                    << hctr.totHits / static_cast<float>(hctr.numReads) << "\n";
                     std::cerr << "# matches per hit = "
-                              << hctr.totMatchLens / static_cast<float>(hctr.totHits) << "\n";
+                    << hctr.totMatchLens / static_cast<float>(hctr.totHits) << "\n";
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
                     std::cerr << "The true hit was in the returned set of hits "
                               << 100.0 * (hctr.trueHits / static_cast<float>(hctr.numReads))
@@ -385,6 +416,9 @@ void processReadsPairSA(paired_parser* parser,
 
     SASearcher saSearcher(&rmi);
 
+    RapMapAligner beforeAligner(true, false);
+    RapMapAligner afterAligner(false, true);
+
     while (true) {
         typename paired_parser::job j(*parser); // Get a job from the parser: a bunch of reads (at most max_read_group)
         if (j.is_empty()) break;                 // If we got nothing, quit
@@ -409,9 +443,14 @@ void processReadsPairSA(paired_parser* parser,
                 hctr.totMatchLens += h.matchLen;
             }
             // If we have reads to output, and we're writing output.
-            if (jointHits.size() > 0 and !noOutput and jointHits.size() <= maxNumHits) {
-                rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
-                                                       hctr, jointHits, sstream);
+            if (jointHits.size() > 0 and jointHits.size() <= maxNumHits) {
+                alignPairedAll(rmi, beforeAligner, afterAligner,
+                               j->data[i].first.seq, j->data[i].second.seq,
+                               jointHits, doAlign);
+                if (!noOutput) {
+                    rapmap::utils::writeAlignmentsToStream(j->data[i], formatter,
+                                                           hctr, jointHits, sstream);
+                }
             }
 
             if (hctr.numReads > hctr.lastPrint + 1000000) {
@@ -421,10 +460,10 @@ void processReadsPairSA(paired_parser* parser,
                         std::cerr << "\r\r";
                     }
                     std::cerr << "saw " << hctr.numReads << " reads : "
-                              << "pe / read = " << hctr.peHits / static_cast<float>(hctr.numReads)
-                              << " : se / read = " << hctr.seHits / static_cast<float>(hctr.numReads)
-                              << " : matches / hit = "
-                              << hctr.totMatchLens / static_cast<float>(hctr.peHits + hctr.seHits) << " ";
+                    << "pe / read = " << hctr.peHits / static_cast<float>(hctr.numReads)
+                    << " : se / read = " << hctr.seHits / static_cast<float>(hctr.numReads)
+                    << " : matches / hit = "
+                    << hctr.totMatchLens / static_cast<float>(hctr.peHits + hctr.seHits) << " ";
 #if defined(__DEBUG__) || defined(__TRACK_CORRECT__)
                     std::cerr << ": true hit \% = "
                         << (100.0 * (hctr.trueHits / static_cast<float>(hctr.numReads)));
@@ -648,7 +687,7 @@ int rapMapSAMap(int argc, char* argv[]) {
 
         bool strictCheck = strict.getValue();
         SpinLockT iomutex;
-        for(int z = 0; z < numRuns.getValue(); ++z) {
+        for (int z = 0; z < numRuns.getValue(); ++z) {
             ScopedTimer timer;
             HitCounters hctrs;
             consoleLog->info("mapping reads . . . \n\n\n\n");

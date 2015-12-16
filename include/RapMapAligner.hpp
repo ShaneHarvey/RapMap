@@ -109,13 +109,22 @@ public:
 
 
 class RapMapAligner {
+private:
+    enum : int {
+        maxRefLen = 192,
+        maxReadLen = 64
+    };
+    TraceBack trace_;      // starting matrix from previous align
+    size_t maxI_, maxJ_;   // Start of trace from previous align
+
+    void init();
 public:
-    int m[256][256];
-    int x[256][256];
-    int y[256][256];
-    TraceBack tm[256][256];
-    TraceBack tx[256][256];
-    TraceBack ty[256][256];
+    int m[maxRefLen][maxReadLen];
+    int x[maxRefLen][maxReadLen];
+    int y[maxRefLen][maxReadLen];
+    TraceBack tm[maxRefLen][maxReadLen];
+    TraceBack tx[maxRefLen][maxReadLen];
+    TraceBack ty[maxRefLen][maxReadLen];
 
     int match;
     int misMatch;
@@ -181,12 +190,6 @@ public:
         trace(cigar);
         cigar.toString(cigarOut);
     }
-
-private:
-    TraceBack trace_;    // starting matrix from previous align
-    size_t maxI_, maxJ_; // Start of trace from previous align
-
-    void init();
 };
 
 

@@ -10,7 +10,7 @@ void RapMapAligner::init() {
     m[0][0] = 0;
     x[0][0] = 0;
     y[0][0] = 0;
-    for (int i = 1; i <= 255; ++i) {
+    for (int i = 1; i < maxRefLen; ++i) {
         m[i][0] = std::numeric_limits<short>::min();
         x[i][0] = std::numeric_limits<short>::min();
         if (freeGapsBeforeRead) {
@@ -21,7 +21,7 @@ void RapMapAligner::init() {
             ty[i][0] = TraceBack::GAP_IN_Y;
         }
     }
-    for (int j = 1; j <= 255; ++j) {
+    for (int j = 1; j < maxReadLen; ++j) {
         m[0][j] = std::numeric_limits<short>::min();
         x[0][j] = gapStart + (j - 1) * gapExtend;
         tx[0][j] = TraceBack::GAP_IN_X;
@@ -33,6 +33,10 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
                          std::string& read, size_t readStart, size_t readLen) {
     int max, xTemp, yTemp, score;
     TraceBack trace;
+
+    // Assumption
+    assert(readLen < maxReadLen);
+    assert(refLen < maxRefLen);
 
     for (int i = 1; i <= refLen; ++i) {
         for (int j = 1; j <= readLen; ++j) {

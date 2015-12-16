@@ -302,9 +302,9 @@ namespace rapmap {
             // left-most position of the mate
             int32_t matePos;
             // length of the MMP of the hit
-            uint32_t matchLen;
+            uint32_t matchLen, mateMatchLen;
             // index of the hit in the query
-            uint32_t queryPos;
+            uint32_t queryPos, mateQueryPos;
             // Is the read from the forward strand
             bool fwd;
             // Is the mate from the forward strand
@@ -319,9 +319,10 @@ namespace rapmap {
             // Is this a paired *alignment* or not
             bool isPaired;
             MateStatus mateStatus;
+            // Alignment scores
+            int score, mateScore;
             // cigar strings
-            std::string cigar;
-            std::string cigar2;
+            std::string cigar, mateCigar;
         };
 
         struct HitInfo {
@@ -647,6 +648,8 @@ namespace rapmap {
                                 auto& qaln = jointHits.back();
                                 qaln.mateLen = rightIt->readLen;
                                 qaln.matePos = startRead2;
+                                qaln.mateQueryPos = rightIt->queryPos;
+                                qaln.mateMatchLen = rightIt->matchLen;
                                 qaln.mateIsFwd = rightIt->fwd;
                                 jointHits.back().mateStatus = MateStatus::PAIRED_END_PAIRED;
 
