@@ -166,3 +166,8 @@ hit in the SA.
 |  1       |  10M     |  179.51s  |     701.82s    |   3.91x  |
 |  8       |  10M     |   41.71s  |     164.21s    |   3.93x  |
 
+# Improvements in RapMap Alignment
+
+# Improvements in RapMap
+
+Only reverse complement the read once at the start of the read. This could reduce code duplication and improve both readability and performance.
