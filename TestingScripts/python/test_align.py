@@ -5,11 +5,11 @@ import subprocess as sub
 import sys
 
 BASE_CMD = ['/home/shane/github/RapMap/build/src/rapmap',
-			'quasimap',
-			'-i /home/shane/github/RapMap/output/',
-			'-r /home/shane/github/RapMap/data/1M.1.fastq',
-			'-t 8',
-			'-n']
+            'quasimap',
+            '-i /home/shane/github/RapMap/output/',
+            '-1 /home/shane/github/RapMap/data/1M.1.fastq',
+            '-2 /home/shane/github/RapMap/data/1M.2.fastq',
+            '-n']
 ALIGN_CMD = BASE_CMD + ['-a']
 
 regex = r"Elapsed time: (\d*\.\d+|\d+)s"
@@ -25,12 +25,14 @@ def run(cmd):
     return total
 
 
-def main(num_runs):
-    print('Taking average of %s runs.' % num_runs)
-    baseTime = run(BASE_CMD + ['-z %s' % num_runs])
-    print('Base time average:  %s' % (baseTime/num_runs))
-    alignTime = run(ALIGN_CMD + ['-z %s' % num_runs])
-    print('Align time average: %s' % (alignTime/num_runs))
+def main(runs, threads):
+    print('Taking average of %s runs with %s threads.' % (runs, threads))
+    config = ['-t %s' % threads, '-z %s' % runs]
+    baseTime = run(BASE_CMD + config)/runs
+    print('Base time average:  %s' % baseTime)
+    alignTime = run(ALIGN_CMD + config)/runs
+    print('Align time average: %s' % alignTime)
+    print('Align/Base: %s' % (alignTime/baseTime))
 
 
 if __name__ == '__main__':
@@ -40,5 +42,9 @@ if __name__ == '__main__':
                         type=int,
                         default=10,
                         help='Number of times to run RapMap.')
+    parser.add_argument('--threads',
+                        type=int,
+                        default=8,
+                        help='Number of threads to use.')
     args = parser.parse_args()
-    main(args.runs)
+    main(args.runs, args.threads)
