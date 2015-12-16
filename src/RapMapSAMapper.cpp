@@ -542,6 +542,7 @@ int rapMapSAMap(int argc, char* argv[]) {
                                          false, 200, "positive integer");
     TCLAP::ValueArg<std::string> outname("o", "output", "The output file (default: stdout)", false, "", "path");
     TCLAP::SwitchArg align("a", "align", "Compute the optimal alignments (CIGAR) for each mapping position", false);
+    TCLAP::ValueArg<uint32_t> numRuns("z", "numRuns", "Number of times to map the reads", false, 1, "positive integer");
     TCLAP::SwitchArg noout("n", "noOutput", "Don't write out any alignments (for speed testing purposes)", false);
     TCLAP::SwitchArg strict("s", "strictCheck",
                             "Perform extra checks to try and assure that only equally \"best\" mappings for a read are reported",
@@ -555,6 +556,7 @@ int rapMapSAMap(int argc, char* argv[]) {
     cmd.add(outname);
     cmd.add(noout);
     cmd.add(align);
+    cmd.add(numRuns);
     cmd.add(strict);
 
     auto consoleSink = std::make_shared<spdlog::sinks::stderr_sink_mt>();
@@ -646,7 +648,7 @@ int rapMapSAMap(int argc, char* argv[]) {
 
         bool strictCheck = strict.getValue();
         SpinLockT iomutex;
-        {
+        for(int z = 0; z < numRuns.getValue(); ++z) {
             ScopedTimer timer;
             HitCounters hctrs;
             consoleLog->info("mapping reads . . . \n\n\n\n");
