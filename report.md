@@ -1,4 +1,5 @@
 # Efficiently Aligning RapMap Read Mappings
+###### Shane Harvey (shane.harvey@stonybrook.edu)
 RapMap quickly reports hit locations of sequencing reads to a transcriptome. In
 this report we extend RapMap to efficiently compute the optimal alignment of the
 read to the transcriptome at these hit locations. As a result we only run
@@ -14,13 +15,13 @@ determine the likely origin locations of the sequencing read. Using quasi-mappin
 RapMap is capable of mapping reads considerably faster than existing tools.
 
 ### Quasi-mapping procedure
-To understand the alignment procedure used later one needs to understand the
+To understand the alignment procedure used later, one needs to understand the
 basic quasi-mapping algorithm. Here is a simplified explanation, curious or
 confused readers should refer to the pre-print for a detailed explanation and
 illustration.
 
 First, a read is scanned from left to right until a k-mer ki is encountered
-that appears in the transcriptome (via the hash table.) The hash table returns
+that appears in the transcriptome (via the hash table). The hash table returns
 the complete suffix array interval I(ki) where the ki is a prefix. This represents 
 a suffix array hit.
 
@@ -43,7 +44,7 @@ Specifically we save the MMP and the start position of the k-mer. With this we
 can calculate the region of the read and the transcript that match *exactly.*
 This length of this region, the MMP, will be at least the size of the k-mer, but
 in practice is often much larger. In our sample data with 76 base pair reads and
-an index built with k-mers of size 31 the average MMP in ~70.
+an index built with k-mers of size 31 the average MMP is ~70.
 
 Below is a diagram of a sample read mapping with the exact match region shown.
 ```
@@ -71,41 +72,41 @@ And finally the equivalent CIGAR string:
 ## Aligning before and after the match
 To align the segment of the read before and after the match we implement semi-global
 affine gap alignment. This was chosen because available libraries required
-significant modifications (SSW) or were too heavy weight (SeqAn.)
+significant modifications or were too heavy weight.
 
-## Scoring matrix for edit distance:
-"Ideally, the match/mismatch penalties used in genome alignment would match the
-evolutionary distances of the sequences being aligned; human DNA to itself is
-expected to be more than 99.9% identical."
+##### SSW https://github.com/mengyao/Complete-Striped-Smith-Waterman-Library/
+This is a very fast and highly optimized aligner but we would need to patch it
+to do semi-global alignment and not Smith-Waterman. It would also
+need to distinguish between match and mismatches in the traceback to report an
+accurate CIGAR string.
 
-"The match/mismatch ratios used in DNA similarity searches also have target
-evolutionary distances. The stringent match/mismatch ratios used by MEGABLAST
-are most effective at matching sequences that are essentially 100% identical,
-e.g. mRNA sequences to genomic exons."
-source:http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3848038/
+##### SeqAn https://github.com/seqan/seqan/
+SeqAn was initally used to perform alignments and output the CIGAR strings. It is
+a very nice library and has excellent documentation. Although performance was
+prohibitive and thus the need to implement alignment within RapMap, it was
+extremely useful as reference implementation.
 
-RapMap should use a match/mismatch set to +1/-3 (roughly 99% similar genomes.)
-
-Additional validation of edit distance:
-"In general, the most widely used error models are the Hamming distance, which
-accommodates only for mismatches between the read and a chosen genomic
-location, and the edit distance, which accounts for mismatches and indels."
-source:http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3627565/
+## Alignment scoring parameters
+Research shows that the choice of parameters for the affine gap semi-global
+alignment is very important. In the context where we are mapping RNA-seq data to
+transcriptomes we should expect the transcripts and reads to be from very similar
+genomes. As in MEGABLAST, we use match/mismatch scores of +1/-3 and like the SSW
+library we use gap start/gap extend scores of -3/-1.
 
 ## Alignment results
 RapMap now has support to quasi-align reads to its set of mapping locations.
-This can be controlled with a commandline flag, *-a*, which defaults to false.
-If the flag is not present alignment is skipped and the would be aligned
-suffix and/or prefix of the read are reported as **M** in the CIGAR string.
+This can be controlled with a command line flag, *-a*, which defaults to false.
+If the flag is not present alignment is skipped and the before/after match segements
+of the read are reported as **M** in the CIGAR string.
 
 ## Speed on synthetic data
-To measure the of alignment we compare mapping speed between quasi-mapping with
-and without alignment. As in the [RapMap pre-print on bioRxiv](http://biorxiv.org/content/early/2015/10/28/029652),
+To measure the speed of alignment we compare mapping speed between quasi-mapping with
+and without alignment. As in the RapMap pre-print on bioRxiv,
 we measure speed using a synthetic data set generated from the human
 transcriptome. However due to hardware limitations, i.e. old laptops, we tested
 using datasets of 1 million and 10 million 76 base pair, paired-end reads
 instead of the ~48 million in the paper. The reference transcriptome consists
-of 86,090 transcripts corresponding to protein-coding genes (same as the paper.) 
+of 86,090 transcripts corresponding to protein-coding genes (same as the paper). 
 
 Here single-end reads refer to looking at **only** the left-mates of the
 paired-end reads. This was done to verify that single-end and paired-end
@@ -113,9 +114,10 @@ reads can be aligned properly.
 
 On average we can expect a speed slowdown of 3.5-4.5x when running RapMap with
 alignment verses quasi-mapping alone. Even still RapMap is faster than both
-STAR an Bowtie 2. Also note that there are still significant optimizations
+STAR and Bowtie 2. Also note that there are still significant optimizations
 that can be done which will be discussed later.
 
+All benchmarks were performed on a Intel(R) Core(TM) i7-2630QM CPU @ 2.00GHz with 8GB of RAM.
 ##### Single-end reads with no output (compiled with -O4, average over 5 runs)
 | Threads  | Reads    | Quasimap  | Quasimap+Align | Slowdown |
 |:--------:|:--------:| :--------:| :------------: | :------: |
@@ -132,33 +134,6 @@ that can be done which will be discussed later.
 |  1       |  10M     |  179.51s  |     701.82s    |   3.91x  |
 |  8       |  10M     |   41.71s  |     164.21s    |   3.93x  |
 
-## RapMap bugs [TODO]
-SAM flags field is wrong (0x900 for only first read mapping)? Perhaps it would
-be nice to use a library such as SeqAn to manage SAM output. This would reduce
-the scope of code RapMap needs to deal with by abstracting away output. Even
-better SeqAn has SAM and *BAM* support so we could output the user's preferred
-format configured with a command line flag.
-
-```
-                              txpHitStart
-                                  |
-                                  v
-TR: ACTTTTGTAAAGATTAAGCTCATTTAGTGTTGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTAGTATTTCAGCAGGATCTGCTGGCAGGGTTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTTTGA
-
-RC: GCCTTCCGTGCCTTGTGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-FW: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACACAAGGCACGGAAGGC
-                   ^
-                   |
-                queryPos
-```
-
-Looks like the qa.pos is not valid???????????
-Yes, in two places in the code we forgot to subtract the k-mer position from
-the hit position. Instead of qa.pos pointing to the left most index of the read
-into the transcript it pointed to the start of the match into the transcript.
-This took some time to find because it was only when the read has only *one*
-hit in the SA.
-
 ## Alignment improvements
 There are two distinct ways that quasi-alignment can be substantially improved.
 The first optimization would target the alignment DP itself. My implementation
@@ -166,29 +141,9 @@ of affine gap alignment leaves significant room for optimization. The
 second route is to avoid repeating the exact same alignment. Both improvements
 are described below.
 
-### Optimize affine gap alignment [TODO]
-Group matrices (m, x, y, tm, tx, ty) for better cache performance?
-
-#### Alignment libraries
-##### [SSW](https://github.com/mengyao/Complete-Striped-Smith-Waterman-Library/)
-http://dx.plos.org/10.1371/journal.pone.0082138
-
-Would need to configure to do semi-global alignment and not Smith-Waterman. Also
-need to distinguish between match and mismatches in the traceback to report an
-accurate CIGAR string.
-
-##### [SeqAn](https://github.com/seqan/seqan/)
-https://www.seqan.de/
-
-Looks very promising but performance was prohibitive. 
-
-### Avoid repeated alignments [TODO]
-Cache transcript/read to avoid repeated alignments! This could lead to a big
-performance increase because often the hit regions are exactly the same bewteen
-transcripts.
-
-Or could remember the Next Informative Position of the match (but what abut the
-before the match part?) Also this is complicated because the QuasiAlignment hits
+### Avoid repeated alignments
+We could remember the next informative position (NIP) of the match and use this information to avoid
+repeating the same alignment after the match multiple times for a single read. Also this is complicated because the QuasiAlignment hits
 could be for different parts of the SA ie they are hits from a different k-mer.
 This means that care would need to be taken so that we don't compare the NIP from
 hits originating from different k-mers in the read. This still ignores the part of
@@ -199,9 +154,6 @@ QuasiAlignment hits would need to be grouped by the originating SA interval hit
 match alignment can be reused for each alignment in this group buy comparing the
 saved NIP. This extra management should not be more complex than doing an extra
 semi-global alignment.
-
-Test cases to make sure aligner and CIGAR reporting works properly.
-
 
 ## RapMap improvements
 There are a number of improvements to be made in RapMap both in terms of
@@ -252,13 +204,23 @@ proposed changes would improve code health making it easier for fresh minds
 to become familiar with the RapMap code base. Additionally it would be easier
 to contribute new features and optimizations, because of de-duplication.
 
-## Future Work [TODO]
+Also it might
+be useful to use a library such as SeqAn to manage SAM output. This would reduce
+the scope of code RapMap needs to deal with by abstracting away output. Even
+better, SeqAn has SAM and *BAM* support so we could output the user's preferred
+format configured with a command line flag.
 
-## Conclusion [TODO]
+## RapMap bugs
+During the addition of alignment serveral bugs were found and/or fixed. In one RapMap
+consumed memory during *single-end* read mapping by not flushing the quasi-map hit buffer.
+In another the reported hit position of the read was not correctly adjusted by the
+length before the match.
 
-## Some alignments are sub-optimal! [TOOD verify]
-Fixing the match can lead to sub-optimial alignments to the hit location! This
-is why we refer to these as quasi-alignments.
+## Conclusion
+We present an extensiton to the tool RapMap that output the alignments of the reads to
+the mapping locations. This degrades run time by 3.5-4.5x even still performing very
+fast. Optimiaztions could reduce the overhead of alignment by avoiding repeats and
+imporving the alignment algorithm.
 
 ## References
 Avi Srivastava, Hirak Sarkar, Rob Patro (2015). RapMap: A Rapid, Sensitive and Accurate Tool for Mapping RNA-seq Reads to Transcriptomes. bioRxiv. http://dx.doi.org/10.1101/029652
