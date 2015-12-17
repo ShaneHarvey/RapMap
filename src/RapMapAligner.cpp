@@ -112,7 +112,7 @@ int RapMapAligner::align(std::string& ref, size_t refStart, size_t refLen,
 
     // Need to find highest score in last column
     if (freeGapsAfterRead) {
-        for (size_t i = 1; i < refLen; ++i) {
+        for (size_t i = 0; i < refLen; ++i) {
             int mtemp = m[i][readLen];
             xTemp = x[i][readLen];
             yTemp = y[i][readLen];
