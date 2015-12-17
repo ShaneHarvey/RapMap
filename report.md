@@ -1,5 +1,4 @@
 # Efficiently Aligning RapMap Read Mappings
-
 RapMap quickly reports hit locations of sequencing reads to a transcriptome. In
 this report we extend RapMap to efficiently compute the optimal alignment of the
 read to the transcriptome at these hit locations. As a result we only run
@@ -14,69 +13,42 @@ a generalized suffix array (SA) and a hash table to efficiently and accurately
 determine the likely origin locations of the sequencing read. Using quasi-mapping
 RapMap is capable of mapping reads considerably faster than existing tools.
 
+### Quasi-mapping procedure [TODO Simplify]
+Given the definitions we have explained above, we
+can summarize the quasi-mapping procedure as follows
+(an illustration of the mapping procedure is provided
+in Figure 1). First, a read is scanned from
+left to right (a symmetric procedure can be used for
+mapping the reverse-complement of a read) until a
+k-mer ki is encountered that appears in h. A lookup
+in h returns the suffix array interval I (ki) corresponding
+to the substring of the read consisting of
+this k-mer. Then, the procedure described above is
+used to compute MMPi and ` = NIP (MMPi). The
+search procedure then advances to position i + ` − k
+in the read, and again begins hashing the k-mers it
+encounters. This process of determining the MMP
+and NIP of each processed k-mer and advancing to
+the next informative position in the read continues
+until the next informative position exceeds position
+lr − k where lr is the length of the read r. The
+result of applying this procedure to a read is a set
+S = {(q0, o0, [b0, e0)),(q1, o1, [b1, e1)), . . . } of query
+positions, MMP orientations, and suffix array intervals,
+with one such triplet corresponding to each
+MMP.
 
-## Some alignments are sub-optimal!
+## Alignment Intro [TODO]
+A naive approach would take the quasi-mapping locations for a read and align it
+to the transcriptome region around each location. But we can leverage information
+calculated during the quasi-mapping procedure to reduce or even eliminate the 
+amount of the read alignment necessary.
 
-```
-Optimal Semi-global alignment:
-Trans: TCCAGGGGGAGGCCTGCAGGCCCCTGGCCCCTTCCACCACCTCTGCCCTCCGTCTGCAGACCTCGTCCATCTGCACCAGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTGTTCCTTTCCTTTGAAGTCACATTTTCTTTTAAAATTTTTTG
-Read:  GATTCGCCTTGTGCCTTTATACCGACCTCATCTGCACTGGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTA
-Score: 18
-Alignment matrix:
-      0     .    :    .    :    .    :    .    :    .    :
-        TCCAGGGGGAGGCCTGCAGGCCCCTGGCCCCTTCCACCACCTCTGCCCTC
-
-        --------------------------------------------------
-
-     50     .    :    .    :    .    :    .    :    .    :
-        CG--TC------TGC----A----GACCTCGTCCATCTGCACCAGGCTCT
-         |  ||      |||    |    |||||    |||||||||  ||||||
-        -GATTCGCCTTGTGCCTTTATACCGACCT----CATCTGCACTGGGCTCT
-
-    100     .    :    .    :    .    :    .    :    .    :
-        GCCTTCACTCCCCCAAGTCTTTGAAAATTT-GTTCCTTTCCTTTGAAGTC
-        ||||||||||||||||||||||||||||||
-        GCCTTCACTCCCCCAAGTCTTTGAAAATTTA-------------------
-
-    150     .    :    .    :
-        ACATTTTCTTTTAAAATTTTTTG
-
-        -----------------------
-
-RapMap Sub-Optimal Alignment:
-Score: 6
-CIGAR: 1=4I2=2I1=1X6=1X1=1D1=1I2=2I2=1I2=2D2=2D2=1X1=3D1X2=2D36=1X
-```
-
-```
-Trans: ACTTTTGTAAAGATTAAGCTCATTTAGTGT TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT AGTATTTCAGCAGGATCTGCTGGCAGGGTTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTTTGA
-Read:  GCCTTCCGTGCCTTG                TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TTTTTTTTTTTTTTTTTTTTTT
-Reverse hit!
-Score: 11
-Alignment matrix:
-      0     .    :    .    :    .    :    .    :    .    :
-        ACTTTTGTAAAGATTAAGCTCATTTAGTG--TTGT-TTTTTTTTTTTTTT
-                         || | ||  |||  |||| ||||||||||||||
-        -----------------GC-C-TTCCGTGCCTTGTGTTTTTTTTTTTTTT
-
-     50     .    :    .    :    .    :    .    :    .    :
-        TTTTTTTTTTTTTTTTTTTTTTAGTATTTCAGCAGGATCTGCTGGCAGGG
-        ||||||||||||||||||||||  | |||        | |
-        TTTTTTTTTTTTTTTTTTTTTT--T-TTT--------TTT----------
-
-    100     .    :    .    :    .    :    .    :    .    :
-        TTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTT
-        ||||||| |||| |||
-        TTTTTTTTTTTTTTTT----------------------------------
-
-    150
-        TGA
-
-        ---
-
-21:3I2=3I1=3I2=1X40=4D1=7D7=1X4=1X3=1X3=
-Before:Match:After:Start 45:39:66:15
-```
+Specifically we save the MMP and the start position of the k-mer. With this we
+can calculate the region of the read and the transcript that match *exactly.*
+This length of this region, the MMP, will be at least the size of the k-mer, but
+in practice is often much larger. In our sample data with 76 base pair reads and
+an index built with k-mers of size 31 the average MMP in ~70.
 
 ## Scoring matrix for edit distance:
 "Ideally, the match/mismatch penalties used in genome alignment would match the
@@ -98,14 +70,12 @@ location, and the edit distance, which accounts for mismatches and indels."
 source:http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3627565/
 
 ## Alignment results
-
 RapMap now has support to quasi-align reads to its set of mapping locations.
 This can be controlled with a commandline flag, *-a*, which defaults to false.
 If the flag is not present Gotoh alignment is skipped and the would be aligned
 suffix and/or prefix of the read are reported as **M** in the CIGAR string.
 
 ## Speed on synthetic data
-
 To measure the of alignment we compare mapping speed between quasi-mapping with
 and without alignment. As in the [RapMap pre-print on bioRxiv](http://biorxiv.org/content/early/2015/10/28/029652),
 we measure speed using a synthetic data set generated from the human
@@ -124,7 +94,6 @@ STAR an Bowtie 2. Also note that there are still significant optimizations
 that can be done which will be discussed later.
 
 ##### Single-end reads with no output (compiled with -O4, average over 5 runs)
-
 | Threads  | Reads    | Quasimap  | Quasimap+Align | Slowdown |
 |:--------:|:--------:| :--------:| :------------: | :------: |
 |  1       |  1M      |   8.09s   |      31.47s    |   3.89x  |
@@ -133,7 +102,6 @@ that can be done which will be discussed later.
 |  8       |  10M     |   19.44s  |     84.51s     |   4.35x  |
 
 ##### Paired-end reads with no output (compiled with -O4, average over 5 runs)
-
 | Threads  | Reads    | Quasimap  | Quasimap+Align | Slowdown |
 |:--------:|:--------:| :--------:| :------------: | :------: |
 |  1       |  1M      |   16.17s  |      58.11s    |   3.59x  |
@@ -141,8 +109,7 @@ that can be done which will be discussed later.
 |  1       |  10M     |  179.51s  |     701.82s    |   3.91x  |
 |  8       |  10M     |   41.71s  |     164.21s    |   3.93x  |
 
-
-## RapMap bugs
+## RapMap bugs [TODO]
 SAM flags field is wrong (0x900 for only first read mapping)? Perhaps it would
 be nice to use a library such as SeqAn to manage SAM output. This would reduce
 the scope of code RapMap needs to deal with by abstracting away output. Even
@@ -176,7 +143,7 @@ of Gotoh affine gap alignment leaves significant room for optimization. The
 second route is to avoid repeating the exact same alignment. Both improvements
 are described below.
 
-### Optimize Gotoh affine gap alignment
+### Optimize Gotoh affine gap alignment [TODO]
 Group matrices (m, x, y, tm, tx, ty) for better cache performance?
 
 #### Alignment libraries
@@ -192,8 +159,7 @@ https://www.seqan.de/
 
 Looks very promising but performance was prohibitive. 
 
-### Avoid repeated alignments
-
+### Avoid repeated alignments [TODO]
 Cache transcript/read to avoid repeated alignments! This could lead to a big
 performance increase because often the hit regions are exactly the same bewteen
 transcripts.
@@ -263,6 +229,68 @@ proposed changes would improve code health making it easier for fresh minds
 to become familiar with the RapMap code base. Additionally it would be easier
 to contribute new features and optimizations, because of de-duplication.
 
-## Future Work
+## Future Work [TODO]
 
-## Conclusion
+## Conclusion [TODO]
+
+## Some alignments are sub-optimal! [TOOD verify]
+```
+Optimal Semi-global alignment:
+Trans: TCCAGGGGGAGGCCTGCAGGCCCCTGGCCCCTTCCACCACCTCTGCCCTCCGTCTGCAGACCTCGTCCATCTGCACCAGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTGTTCCTTTCCTTTGAAGTCACATTTTCTTTTAAAATTTTTTG
+Read:  GATTCGCCTTGTGCCTTTATACCGACCTCATCTGCACTGGGCTCTGCCTTCACTCCCCCAAGTCTTTGAAAATTTA
+Score: 18
+Alignment matrix:
+      0     .    :    .    :    .    :    .    :    .    :
+        TCCAGGGGGAGGCCTGCAGGCCCCTGGCCCCTTCCACCACCTCTGCCCTC
+
+        --------------------------------------------------
+
+     50     .    :    .    :    .    :    .    :    .    :
+        CG--TC------TGC----A----GACCTCGTCCATCTGCACCAGGCTCT
+         |  ||      |||    |    |||||    |||||||||  ||||||
+        -GATTCGCCTTGTGCCTTTATACCGACCT----CATCTGCACTGGGCTCT
+
+    100     .    :    .    :    .    :    .    :    .    :
+        GCCTTCACTCCCCCAAGTCTTTGAAAATTT-GTTCCTTTCCTTTGAAGTC
+        ||||||||||||||||||||||||||||||
+        GCCTTCACTCCCCCAAGTCTTTGAAAATTTA-------------------
+
+    150     .    :    .    :
+        ACATTTTCTTTTAAAATTTTTTG
+
+        -----------------------
+
+RapMap Sub-Optimal Alignment:
+Score: 6
+CIGAR: 1=4I2=2I1=1X6=1X1=1D1=1I2=2I2=1I2=2D2=2D2=1X1=3D1X2=2D36=1X
+```
+
+```
+Trans: ACTTTTGTAAAGATTAAGCTCATTTAGTGT TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT AGTATTTCAGCAGGATCTGCTGGCAGGGTTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTTTGA
+Read:  GCCTTCCGTGCCTTG                TGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TTTTTTTTTTTTTTTTTTTTTT
+Reverse hit!
+Score: 11
+Alignment matrix:
+      0     .    :    .    :    .    :    .    :    .    :
+        ACTTTTGTAAAGATTAAGCTCATTTAGTG--TTGT-TTTTTTTTTTTTTT
+                         || | ||  |||  |||| ||||||||||||||
+        -----------------GC-C-TTCCGTGCCTTGTGTTTTTTTTTTTTTT
+
+     50     .    :    .    :    .    :    .    :    .    :
+        TTTTTTTTTTTTTTTTTTTTTTAGTATTTCAGCAGGATCTGCTGGCAGGG
+        ||||||||||||||||||||||  | |||        | |
+        TTTTTTTTTTTTTTTTTTTTTT--T-TTT--------TTT----------
+
+    100     .    :    .    :    .    :    .    :    .    :
+        TTTTTTTGTTTTATTTGTTTGCTTATTTTTAAATTAACTGTTTTGAGCTT
+        ||||||| |||| |||
+        TTTTTTTTTTTTTTTT----------------------------------
+
+    150
+        TGA
+
+        ---
+
+21:3I2=3I1=3I2=1X40=4D1=7D7=1X4=1X3=1X3=
+Before:Match:After:Start 45:39:66:15
+```
