@@ -14,29 +14,24 @@ determine the likely origin locations of the sequencing read. Using quasi-mappin
 RapMap is capable of mapping reads considerably faster than existing tools.
 
 ### Quasi-mapping procedure [TODO Simplify]
-Given the definitions we have explained above, we
-can summarize the quasi-mapping procedure as follows
-(an illustration of the mapping procedure is provided
-in Figure 1). First, a read is scanned from
-left to right (a symmetric procedure can be used for
-mapping the reverse-complement of a read) until a
-k-mer ki is encountered that appears in h. A lookup
-in h returns the suffix array interval I (ki) corresponding
-to the substring of the read consisting of
-this k-mer. Then, the procedure described above is
-used to compute MMPi and ` = NIP (MMPi). The
-search procedure then advances to position i + ` − k
-in the read, and again begins hashing the k-mers it
-encounters. This process of determining the MMP
-and NIP of each processed k-mer and advancing to
-the next informative position in the read continues
-until the next informative position exceeds position
-lr − k where lr is the length of the read r. The
-result of applying this procedure to a read is a set
-S = {(q0, o0, [b0, e0)),(q1, o1, [b1, e1)), . . . } of query
-positions, MMP orientations, and suffix array intervals,
-with one such triplet corresponding to each
-MMP.
+To understand the alignment procedure used later one needs to understand the
+basic quasi-mapping algorithm. Here is a simplified explanation, curious or
+confused readers should refer to the pre-print for a detailed explanation and
+illustration.
+
+First, a read is scanned from left to right until a k-mer ki is encountered
+that appears in the transcriptome (via the hash table.) The hash table returns
+the complete suffix array interval I(ki) where the ki is a prefix. This represents 
+a suffix array hit.
+
+After a k-mer hit we skip forward in the read to avoid redundant hits. The skip
+is calculated as follows. The maximum mappable prefix (MMP) of the read to this
+interval is computed. Finally, the next informative position (NIP) is computed
+from the longest common prefix of the MMP interval. The search continues at the
+position i + NIP - k in the read.
+
+For our purposes it is important to note that the MMP of a hit a region of the
+read that **exactly** matches the reference transcripts.
 
 ## Alignment Intro [TODO]
 A naive approach would take the quasi-mapping locations for a read and align it
@@ -49,6 +44,26 @@ can calculate the region of the read and the transcript that match *exactly.*
 This length of this region, the MMP, will be at least the size of the k-mer, but
 in practice is often much larger. In our sample data with 76 base pair reads and
 an index built with k-mers of size 31 the average MMP in ~70.
+
+Below is a diagram of a sample read mapping with the exact match region shown.
+
+
+        txpHitStart
+          |
+          |txpStart                   txpHitEnd             txpEnd
+          |   |txpMatchStart  txpMatchEnd |                    |
+          v   v    v               v      v                    v
+    ----------|----================----------------------------|---------|
+          |---|----================|------|
+                   ^               ^
+                   |            matchEnd
+               matchStart
+
+
+## Aligning before and after the match
+To align the segment of the read before and after the match we implement semi-global
+affine gap alignment. This was chosen because available libraries required
+significant modifications (SSW) or were too heavy weight (SeqAn.)
 
 ## Scoring matrix for edit distance:
 "Ideally, the match/mismatch penalties used in genome alignment would match the
