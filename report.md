@@ -1,13 +1,13 @@
-# Efficiently solve read mapping alignments
+# RapMap: Aligning Read Mappings Efficiently
 
-# RapMap TODOS
+## RapMap TODOS
 SAM flags field is wrong (0x900 for only first read mapping)?
 
 Add alignment to paired-end reads. Should be easy!
 
 Optimize RapMapAligner?
 
-Group matricies (m, x, y, tm, tx, ty) for better cache preformance?
+Group matrices (m, x, y, tm, tx, ty) for better cache performance?
 
 Cache transcript/read to avoid repeated alignments! This could lead to a big
 performance increase because often the hit regions are exactly the same bewteen
@@ -20,7 +20,7 @@ This means that care would need to be taken so that we don't compare the NIP fro
 hits originating from different k-mers in the read. This still ignores the part of
 the transcript that matches with the read before the k-mer.
 
-QuasiAlignment hits would need to be grouped by the origniating SA interval hit
+QuasiAlignment hits would need to be grouped by the originating SA interval hit
 (could use the saved query position or *queryPos.*) Then we can see if the after
 match alignment can be reused for each alignment in this group buy comparing the
 saved NIP. This extra management should not be more complex than doing an extra
@@ -173,15 +173,25 @@ hit in the SA.
 # Improvements to RapMap Alignment
 
 # Improvements to RapMap
-There are a number of improvements to be made in RapMap both in terms of readability and performance. First, we could only reverse complement the read once at the start of proccessing a read. This would improve performance because a read would not need to be reverse complemented in multiple places leading to wasted memory allocation and CPU cycles. This change code additionally improve code health. reduce code duplication and improve readability, performance, and maintainability. Readability because there would less code to read. Performance because a read would not need to be reverse complemented in multiple places. Maintainability because we would have less chance of modifying the code in copy A but forgetting to update copy B. First code that is mostly duplicated in this respect code be refactored.
+There are a number of improvements to be made in RapMap both in terms of
+readability and performance. First, we could only reverse complement the read
+once at the start of processing a read. This would improve performance because
+a read would not need to be reverse complemented in multiple places leading to
+wasted memory allocation and CPU cycles. This change code additionally improve
+code health. reduce code duplication and improve readability, performance, and
+maintainability. Readability because there would less code to read. Performance
+because a read would not need to be reverse complemented in multiple places.
+Maintainability because we would have less chance of modifying the code in copy
+A but forgetting to update copy B. First code that is mostly duplicated in this
+respect code be refactored.
 
 ```c++
-void collectHits(string& read, vector<QuasiAlignment>& hits, /* omited extra params */) {
-      /* code to proccess read k-mers */
+void collectHits(string& read, vector<QuasiAlignment>& hits, /* params */) {
+      /* code to process read k-mers */
       ...
       /* code to process reverse complement read k-mers */
       ...
-      /* code to proccess read hits */
+      /* code to process read hits */
       ...
       /* code to process reverse complement read hits */
       ...
@@ -189,21 +199,24 @@ void collectHits(string& read, vector<QuasiAlignment>& hits, /* omited extra par
 ```
 An refactored version would look something like,
 ```c++
-void collectHits(string& read, vector<QuasiAlignment>& hits, /* omited extra params */) {
-      /* code to proccess read k-mers */
+void collectHits(string& read, vector<QuasiAlignment>& hits, /* params */) {
+      /* code to process read k-mers */
       ...
-      /* code to proccess read hits */
+      /* code to process read hits */
       ...
 }
 
 void proccessRead(string& read) {
       string revCompRead = reverseComplement(read);
       vector<QuasiAlignment> hits;
-      collectHits(read, hits,  /* omited extra params */);
-      collectHits(revCompRead, hits,  /* omited extra params */);
+      collectHits(read, hits, /* params */);
+      collectHits(revCompRead, hits, /* params */);
       
       /* output hits */
 }
 ```
 
-This pattern is present in multiple places in the RapMap code base. These proposed changes would improve code health making it easier for fresh minds to become familar with the RapMap code base. Additionally it would be easier to contribute new features and optimizations, because of de-duplication.
+This pattern is present in multiple places in the RapMap code base. These
+proposed changes would improve code health making it easier for fresh minds
+to become familiar with the RapMap code base. Additionally it would be easier
+to contribute new features and optimizations, because of de-duplication.
