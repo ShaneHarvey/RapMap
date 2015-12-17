@@ -13,7 +13,7 @@ a generalized suffix array (SA) and a hash table to efficiently and accurately
 determine the likely origin locations of the sequencing read. Using quasi-mapping
 RapMap is capable of mapping reads considerably faster than existing tools.
 
-### Quasi-mapping procedure [TODO Simplify]
+### Quasi-mapping procedure
 To understand the alignment procedure used later one needs to understand the
 basic quasi-mapping algorithm. Here is a simplified explanation, curious or
 confused readers should refer to the pre-print for a detailed explanation and
@@ -33,7 +33,7 @@ position i + NIP - k in the read.
 For our purposes it is important to note that the MMP of a hit a region of the
 read that **exactly** matches the reference transcripts.
 
-## Alignment Intro [TODO]
+## Alignment using quasing-mapping
 A naive approach would take the quasi-mapping locations for a read and align it
 to the transcriptome region around each location. But we can leverage information
 calculated during the quasi-mapping procedure to reduce or even eliminate the 
@@ -46,19 +46,27 @@ in practice is often much larger. In our sample data with 76 base pair reads and
 an index built with k-mers of size 31 the average MMP in ~70.
 
 Below is a diagram of a sample read mapping with the exact match region shown.
+```
+          alignBefore                MMP                      alignAfter
+               |                      |                            |
+            |--v--| |-----------------v-------------------| |------v---------|
+Transcript: GGCAGCC:GTGAGGCGCGTGTTCGGGCTCTTGCCGTCCCCGCACCCG:CACCGCGGTTACTGGCTT
+Read:         ACGTA:GTGAGGCGCGTGTTCGGGCTCTTGCCGTCCCCGCACCCG:TTTTTT
+                   ^
+                   |
+              k-mer positon
+              
+And the resultant optimal alignment:
+           alignBefore              MMP                 alignAfter
+                |                    |                       |
+            |---v---|----------------v--------------------|--v--|
+Transcript: GGCA-GCCGTGAGGCGCGTGTTCGGGCTCTTGCCGTCCCCGCACCCG------
+               | |  |||||||||||||||||||||||||||||||||||||||      
+Read:       ---ACGTAGTGAGGCGCGTGTTCGGGCTCTTGCCGTCCCCGCACCCGTTTTTT
 
-
-        txpHitStart
-          |
-          |txpStart                   txpHitEnd             txpEnd
-          |   |txpMatchStart  txpMatchEnd |                    |
-          v   v    v               v      v                    v
-    ----------|----================----------------------------|---------|
-          |---|----================|------|
-                   ^               ^
-                   |            matchEnd
-               matchStart
-
+And finally the equivalent CIGAR string:
+1=1I1=2X39=6I
+```
 
 ## Aligning before and after the match
 To align the segment of the read before and after the match we implement semi-global
@@ -87,7 +95,7 @@ source:http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3627565/
 ## Alignment results
 RapMap now has support to quasi-align reads to its set of mapping locations.
 This can be controlled with a commandline flag, *-a*, which defaults to false.
-If the flag is not present Gotoh alignment is skipped and the would be aligned
+If the flag is not present alignment is skipped and the would be aligned
 suffix and/or prefix of the read are reported as **M** in the CIGAR string.
 
 ## Speed on synthetic data
@@ -154,11 +162,11 @@ hit in the SA.
 ## Alignment improvements
 There are two distinct ways that quasi-alignment can be substantially improved.
 The first optimization would target the alignment DP itself. My implementation
-of Gotoh affine gap alignment leaves significant room for optimization. The
+of affine gap alignment leaves significant room for optimization. The
 second route is to avoid repeating the exact same alignment. Both improvements
 are described below.
 
-### Optimize Gotoh affine gap alignment [TODO]
+### Optimize affine gap alignment [TODO]
 Group matrices (m, x, y, tm, tx, ty) for better cache performance?
 
 #### Alignment libraries
@@ -251,3 +259,14 @@ to contribute new features and optimizations, because of de-duplication.
 ## Some alignments are sub-optimal! [TOOD verify]
 Fixing the match can lead to sub-optimial alignments to the hit location! This
 is why we refer to these as quasi-alignments.
+
+## References
+Avi Srivastava, Hirak Sarkar, Rob Patro (2015). RapMap: A Rapid, Sensitive and Accurate Tool for Mapping RNA-seq Reads to Transcriptomes. bioRxiv. http://dx.doi.org/10.1101/029652
+
+Zhao M, Lee W-P, Garrison EP, Marth GT (2013) SSW Library: An SIMD Smith-Waterman C/C++ Library for Use in Genomic Applications. PLoS ONE 8(12): e82138. doi:10.1371/journal.pone.0082138
+
+Andreas Döring, David Weese, Tobias Rausch and Knut Reinert. SeqAn an efficient, generic C++ library for sequence analysis. BMC Bioinformatics, 9:11, 2008.
+
+Pearson, W. R. (2013). Selecting the Right Similarity-Scoring Matrix. Current Protocols in Bioinformatics / Editoral Board, Andreas D. Baxevanis ... [et Al.], 43, 3.5.1–3.5.9. http://doi.org/10.1002/0471250953.bi0305s43
+
+Siragusa, E., Weese, D., & Reinert, K. (2013). Fast and accurate read mapping with approximate seeds and multiple backtracking. Nucleic Acids Research, 41(7), e78. http://doi.org/10.1093/nar/gkt005
