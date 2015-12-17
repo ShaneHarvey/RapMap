@@ -2,9 +2,9 @@
 RapMap quickly reports hit locations of sequencing reads to a transcriptome. In
 this report we extend RapMap to efficiently compute the optimal alignment of the
 read to the transcriptome at these hit locations. As a result we only run
-3.5-4.5x slower to generate the alignments. The speed comes from leveraging
-the exact match region found in quasi-map lookup and significant optimizations
-are still possible.
+3.5-4.5x slower to generate the alignment CIGAR strings. The speed comes from
+leveraging the exact match region found in quasi-map lookup and significant
+optimizations are still possible.
 
 ## RapMap
 RapMap is an implementation of quasi-mapping, in which sequencing reads are
