@@ -123,7 +123,7 @@ inline void seqanAlignGraph(std::string& s1, std::string& s2) {
 
     // Graph
     int score = seqan::globalAlignment(alignG, scoreParams, configBefore);
-    std::cout << "Score: " << score << std::endl;
+    std::cout << "SeqAn align score: " << score << std::endl;
     std::cout << alignG << std::endl;
 }
 
@@ -226,13 +226,15 @@ inline int alignHit(RapMapSAIndex& rmi,
     cigarString.toString(cigar);
 
 //    auto rBefore = read.substr(readAlignBeforeStart, alignBeforeLen);
-//    auto tMatch = rmi.seq.substr(txpMatchStart, qa.matchLen);
-//    auto rMatch = read.substr(matchStart, qa.matchLen);
+//    auto tMatch = rmi.seq.substr(txpMatchStart, matchLen);
+//    auto rMatch = read.substr(matchStart, matchLen);
 //    auto rAfter = read.substr(readAlignAfterStart, alignAfterLen);
-//    std::cerr << "Align Score: " << score << std::endl;
+//    std::cerr << "My align Score: " << score << std::endl;
 //    std::cerr << tBefore << ":" << tMatch << ":" << tAfter << std::endl;
 //    std::cerr << rBefore << ":" << rMatch << ":" << rAfter << std::endl;
 //    std::cerr << cigar << std::endl;
+//    auto ref = tBefore + tMatch + tAfter;
+//    seqanAlignGraph(ref, read);
     return score;
 }
 
